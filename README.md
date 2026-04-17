@@ -5,7 +5,7 @@ Production plugin marketplace for Public.com MCP integration.
 ## Structure
 
 - `.claude-plugin/marketplace.json` - marketplace definition
-- `plugins/publicdotcom-py` - production Public.com plugin
+- `plugins/public` - production Public.com plugin
 
 ## Use
 
