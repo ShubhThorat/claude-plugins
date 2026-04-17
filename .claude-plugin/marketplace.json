@@ -13,6 +13,13 @@
       "source": "./plugins/example",
       "category": "developer-tools",
       "homepage": "https://example.com"
+    },
+    {
+      "name": "publicdotcom-py",
+      "description": "Public.com MCP integration for portfolio, quotes, options data, and order workflows in Claude.",
+      "source": "./plugins/publicdotcom-py",
+      "category": "external-integrations",
+      "homepage": "https://public.com/api"
     }
   ]
 }

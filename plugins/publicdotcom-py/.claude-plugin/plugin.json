@@ -1,0 +1,7 @@
+{
+  "name": "publicdotcom-py",
+  "description": "Public.com trading integration for Claude using the official publicdotcom-mcp-server.",
+  "author": {
+    "name": "Public.com"
+  }
+}

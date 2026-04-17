@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "public-com": {
+      "command": "uvx",
+      "args": ["publicdotcom-mcp-server"],
+      "env": {
+        "PUBLIC_COM_SECRET": "",
+        "PUBLIC_COM_ACCOUNT_ID": ""
+      }
+    }
+  }
+}

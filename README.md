@@ -6,6 +6,7 @@ Minimal Claude Code plugin marketplace scaffold.
 
 - `.claude-plugin/marketplace.json` - marketplace definition
 - `plugins/example` - starter plugin
+- `plugins/publicdotcom-py` - Public API Python SDK plugin scaffold
 
 ## Use
 
