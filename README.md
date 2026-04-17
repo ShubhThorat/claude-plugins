@@ -1,15 +1,14 @@
 # claude-plugins (barebones)
 
-Minimal Claude Code plugin marketplace scaffold.
+Production plugin marketplace for Public.com MCP integration.
 
 ## Structure
 
 - `.claude-plugin/marketplace.json` - marketplace definition
-- `plugins/example` - starter plugin
-- `plugins/publicdotcom-py` - Public API Python SDK plugin scaffold
+- `plugins/publicdotcom-py` - production Public.com plugin
 
 ## Use
 
 1. Edit marketplace owner/name metadata.
-2. Add plugin folders under `plugins/`.
-3. Update each plugin's `.claude-plugin/plugin.json`.
+2. Configure Public.com credentials for plugin runtime.
+3. Install via Claude and reload plugins.

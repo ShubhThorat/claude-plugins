@@ -7,7 +7,6 @@ Production-ready Claude plugin for Public.com using the official MCP server dire
 ## What this plugin provides
 
 - `.mcp.json` wired directly to `uvx publicdotcom-mcp-server`
-- A built-in skill for safe quote/portfolio/trading workflows
 
 ## Prerequisites
 

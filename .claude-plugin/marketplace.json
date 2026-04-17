@@ -1,25 +1,25 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "your-handle",
-  "description": "Barebones Claude Code plugin marketplace",
+  "name": "shubhthorat",
+  "description": "Personal MCP plugins by shubhthorat.com",
   "owner": {
-    "name": "Your Name",
-    "email": "you@example.com"
+    "name": "Shubh Thorat",
+    "email": "shubh@shubhthorat.com"
   },
   "plugins": [
     {
-      "name": "example",
-      "description": "Starter plugin scaffold",
-      "source": "./plugins/example",
-      "category": "developer-tools",
-      "homepage": "https://example.com"
-    },
-    {
-      "name": "publicdotcom-py",
+      "name": "public",
       "description": "Public.com MCP integration for portfolio, quotes, options data, and order workflows in Claude.",
-      "source": "./plugins/publicdotcom-py",
+      "source": "./plugins/public",
       "category": "external-integrations",
       "homepage": "https://public.com/api"
+    },
+    {
+      "name": "perplexity",
+      "description": "Perplexity MCP integration for web search, ask, research, and reasoning workflows in Claude.",
+      "source": "./plugins/perplexity",
+      "category": "external-integrations",
+      "homepage": "https://github.com/perplexityai/modelcontextprotocol"
     }
   ]
 }

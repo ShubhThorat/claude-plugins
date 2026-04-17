@@ -1,0 +1,7 @@
+{
+  "name": "perplexity",
+  "description": "Perplexity MCP server integration for search and reasoning in Claude.",
+  "author": {
+    "name": "Perplexity AI"
+  }
+}
