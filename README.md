@@ -1,38 +1,57 @@
-# claude-plugins
+<h1 align="center">Shubh Thorat · Claude Plugins</h1>
 
-Personal Claude Code plugin marketplace with MCP integrations for Public.com (trading, portfolio, options) and Perplexity (search, research, reasoning).
+<p align="center">
+  <strong>Personal Claude Code plugins and MCP integrations.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/shubhthorat/claude-plugins"><img src="https://img.shields.io/badge/claude--code-plugin--marketplace-blue" alt="Claude Code Plugin Marketplace" /></a>
+</p>
+
+---
+
+## Install
+
+In Claude Code:
+
+```
+/plugin marketplace add shubhthorat/claude-plugins
+```
+
+Then install individual plugins:
+
+```
+/plugin install public@shubhthorat
+/plugin install perplexity@shubhthorat
+```
+
+```
+/reload-plugins
+```
+
+---
 
 ## Plugins
 
-| Plugin | Description | Server |
-|--------|-------------|--------|
-| [public](plugins/public) | Portfolio management, market quotes, options data, and order workflows | `uvx publicdotcom-mcp-server` |
-| [perplexity](plugins/perplexity) | Web search, ask, research, and reasoning | `npx @perplexity-ai/mcp-server` |
+### [Public](./plugins/public)
 
-## Structure
+Connect Claude to Public.com for portfolio, quotes, options data, and trading workflows using the official Public MCP server.
 
-```
-.claude-plugin/marketplace.json   # marketplace definition
-plugins/public/                   # Public.com plugin
-plugins/perplexity/               # Perplexity plugin
-```
+**Server:** `uvx publicdotcom-mcp-server`
 
-## Setup
+### [Perplexity](./plugins/perplexity)
 
-1. Set credentials in your shell profile:
+Connect Claude to Perplexity for real-time web search, conversational ask, deep research, and reasoning workflows.
 
-```bash
-# Public.com
-export PUBLIC_COM_SECRET="your_api_secret_key"
-export PUBLIC_COM_ACCOUNT_ID="your_account_id"
+**Server:** `npx -y @perplexity-ai/mcp-server`
 
-# Perplexity
-export PERPLEXITY_API_KEY="your_key_here"
-```
+---
 
-2. Install the marketplace in Claude and reload plugins.
+## For Developers
 
-## References
+This repo is the plugin marketplace definition. It contains plugin metadata and MCP configuration for each integration.
 
-- [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server)
-- [Perplexity MCP GitHub](https://github.com/perplexityai/modelcontextprotocol)
+| Plugin | Source |
+|--------|--------|
+| public | [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server) |
+| perplexity | [Perplexity MCP](https://github.com/perplexityai/modelcontextprotocol) |
