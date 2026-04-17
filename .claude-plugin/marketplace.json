@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "your-handle",
+  "description": "Barebones Claude Code plugin marketplace",
+  "owner": {
+    "name": "Your Name",
+    "email": "you@example.com"
+  },
+  "plugins": [
+    {
+      "name": "example",
+      "description": "Starter plugin scaffold",
+      "source": "./plugins/example",
+      "category": "developer-tools",
+      "homepage": "https://example.com"
+    }
+  ]
+}

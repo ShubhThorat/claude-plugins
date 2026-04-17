@@ -1,0 +1,8 @@
+{
+  "name": "example",
+  "description": "Barebones starter plugin",
+  "author": {
+    "name": "Your Name",
+    "email": "you@example.com"
+  }
+}
