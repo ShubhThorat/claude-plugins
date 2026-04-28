@@ -6799,6 +6799,9 @@ var require_dist = __commonJS({
 
 // index.js
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -21013,29 +21016,43 @@ var StdioServerTransport = class {
 };
 
 // index.js
+function loadPersistentConfig() {
+  try {
+    const configPath = join(homedir(), ".config", "ssh-cluster", "env.json");
+    return JSON.parse(readFileSync(configPath, "utf8"));
+  } catch {
+    return {};
+  }
+}
+var persistentConfig = loadPersistentConfig();
+function getEnv(name) {
+  return (process.env[name] || persistentConfig[name] || "").trim();
+}
 function getRequiredEnv(name) {
-  const value = process.env[name]?.trim();
+  const value = getEnv(name);
   if (!value) {
-    throw new Error(`Missing required environment variable: ${name}`);
+    throw new Error(
+      `Missing required config: ${name}. Set it in the MCP env or create ~/.config/ssh-cluster/env.json`
+    );
   }
   return value;
 }
 function parsePositiveInt(name, fallback) {
-  const raw = process.env[name];
+  const raw = getEnv(name);
   if (!raw) return fallback;
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return parsed;
 }
 function strictHostKeyEnabled() {
-  const raw = (process.env.SSH_CLUSTER_STRICT_HOST_KEY ?? "true").toLowerCase();
+  const raw = (getEnv("SSH_CLUSTER_STRICT_HOST_KEY") || "true").toLowerCase();
   return raw !== "false";
 }
 function buildSshArgs() {
   const host = getRequiredEnv("SSH_CLUSTER_HOST");
   const args = [];
-  const port = process.env.SSH_CLUSTER_PORT?.trim();
-  const keyPath = process.env.SSH_CLUSTER_KEY_PATH?.trim();
+  const port = getEnv("SSH_CLUSTER_PORT");
+  const keyPath = getEnv("SSH_CLUSTER_KEY_PATH");
   if (port) {
     args.push("-p", port);
   }
