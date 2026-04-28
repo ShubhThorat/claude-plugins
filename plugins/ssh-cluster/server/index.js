@@ -149,11 +149,7 @@ server.tool(
   async () => {
     try {
       const result = await runSsh({
-        remoteArgs: [
-          "bash",
-          "-lc",
-          "printf '%s|%s|%s\\n' \"$(hostname)\" \"$(whoami)\" \"$(pwd)\""
-        ],
+        remoteArgs: ["echo \"$(hostname)|$(whoami)|$(pwd)\""],
         timeoutMs: 20000
       });
 
@@ -179,8 +175,9 @@ server.tool(
   },
   async ({ command, timeoutMs }) => {
     try {
+      const escaped = command.replace(/'/g, "'\\''");
       const result = await runSsh({
-        remoteArgs: ["bash", "-lc", command],
+        remoteArgs: [`bash -lc '${escaped}'`],
         timeoutMs
       });
       return asTextContent({
