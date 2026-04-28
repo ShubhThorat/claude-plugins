@@ -1,9 +1,9 @@
 {
   "mcpServers": {
     "ssh-cluster": {
-      "command": "node",
+      "command": "bash",
       "args": [
-        "server/index.js"
+        "start.sh"
       ],
       "env": {
         "SSH_CLUSTER_HOST": "",
