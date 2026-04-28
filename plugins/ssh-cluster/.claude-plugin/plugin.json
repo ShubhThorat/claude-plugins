@@ -1,0 +1,7 @@
+{
+  "name": "ssh-cluster",
+  "description": "Generic SSH cluster integration for Claude via a custom MCP server wrapper.",
+  "author": {
+    "name": "Shubh Thorat"
+  }
+}

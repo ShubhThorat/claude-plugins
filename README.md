@@ -23,6 +23,7 @@ Then install individual plugins:
 ```
 /plugin install public@shubhthorat
 /plugin install perplexity@shubhthorat
+/plugin install ssh-cluster@shubhthorat
 ```
 
 ```
@@ -45,6 +46,12 @@ Connect Claude to Perplexity for real-time web search, conversational ask, deep 
 
 **Server:** `npx -y @perplexity-ai/mcp-server`
 
+### [SSH Cluster](./plugins/ssh-cluster)
+
+Connect Claude to any SSH-accessible cluster (HPC/GPU/bastion-backed) using a custom MCP wrapper with command and script execution tools.
+
+**Server:** `node server/index.js`
+
 ---
 
 ## For Developers
@@ -55,3 +62,4 @@ This repo is the plugin marketplace definition. It contains plugin metadata and 
 |--------|--------|
 | public | [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server) |
 | perplexity | [Perplexity MCP](https://github.com/perplexityai/modelcontextprotocol) |
+| ssh-cluster | [OpenSSH](https://www.openssh.com/) |

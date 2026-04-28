@@ -20,6 +20,13 @@
       "source": "./plugins/perplexity",
       "category": "external-integrations",
       "homepage": "https://github.com/perplexityai/modelcontextprotocol"
+    },
+    {
+      "name": "ssh-cluster",
+      "description": "Generic SSH cluster MCP integration for running remote shell commands and scripts in Claude.",
+      "source": "./plugins/ssh-cluster",
+      "category": "developer-tools",
+      "homepage": "https://www.openssh.com/"
     }
   ]
 }
