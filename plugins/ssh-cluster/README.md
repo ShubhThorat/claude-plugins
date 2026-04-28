@@ -19,30 +19,50 @@ Set these in Claude/plugin env before starting:
 - `SSH_CLUSTER_MAX_OUTPUT_BYTES`: optional; max total stdout+stderr bytes (default `262144`).
 - `SSH_CLUSTER_DEFAULT_TIMEOUT_MS`: optional; default command timeout in ms (default `120000`).
 
-## Auth Mode A: Explicit Key Path
+## Setup
 
-```bash
-SSH_CLUSTER_HOST=thorat.shu@login.explorer.northeastern.edu
-SSH_CLUSTER_KEY_PATH=~/.ssh/id_rsa
-SSH_CLUSTER_PORT=22
-SSH_CLUSTER_STRICT_HOST_KEY=true
+### 1. Add an SSH config alias (recommended)
+
+Add an entry to `~/.ssh/config`:
+
+```
+Host my-cluster
+  HostName login.mycluster.edu
+  User myusername
+  IdentityFile ~/.ssh/id_rsa
 ```
 
-## Auth Mode B: SSH Config Alias
+### 2. Set `SSH_CLUSTER_HOST` in Claude settings
 
-Use a host entry in `~/.ssh/config`, then set only:
+Add to `~/.claude/settings.json` under the `env` key — this persists across plugin reinstalls:
 
-```bash
-SSH_CLUSTER_HOST=my-cluster-alias
-SSH_CLUSTER_STRICT_HOST_KEY=true
+```json
+{
+  "env": {
+    "SSH_CLUSTER_HOST": "my-cluster"
+  }
+}
 ```
 
-## Local Server Setup
+Or use a full `user@host` string instead of an alias:
 
-From this plugin directory:
+```json
+{
+  "env": {
+    "SSH_CLUSTER_HOST": "myusername@login.mycluster.edu"
+  }
+}
+```
+
+### 3. Reload plugins
+
+Run `/reload-plugins` in Claude Code. No install step required — the server is pre-bundled.
+
+## Local Development
 
 ```bash
 cd server
 npm install
+npm run build   # rebuilds server/bundle.js
 npm start
 ```
