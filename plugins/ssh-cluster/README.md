@@ -32,27 +32,25 @@ Host my-cluster
   IdentityFile ~/.ssh/id_rsa
 ```
 
-### 2. Set `SSH_CLUSTER_HOST` in Claude settings
+### 2. Create a persistent config file
 
-Add to `~/.claude/settings.json` under the `env` key — this persists across plugin reinstalls:
-
-```json
-{
-  "env": {
-    "SSH_CLUSTER_HOST": "my-cluster"
-  }
-}
-```
-
-Or use a full `user@host` string instead of an alias:
+Create `~/.config/ssh-cluster/env.json` with your settings — this survives plugin reinstalls and reloads:
 
 ```json
 {
-  "env": {
-    "SSH_CLUSTER_HOST": "myusername@login.mycluster.edu"
-  }
+  "SSH_CLUSTER_HOST": "my-cluster"
 }
 ```
+
+Or use a full `user@host` string:
+
+```json
+{
+  "SSH_CLUSTER_HOST": "myusername@login.mycluster.edu"
+}
+```
+
+Any of the environment variables listed above can go in this file. Values set in the MCP env take precedence over the file.
 
 ### 3. Reload plugins
 
