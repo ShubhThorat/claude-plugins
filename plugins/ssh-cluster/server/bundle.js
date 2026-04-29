@@ -6798,8 +6798,8 @@ var require_dist = __commonJS({
 });
 
 // index.js
-import { spawn } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { spawn, execSync } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -21016,10 +21016,13 @@ var StdioServerTransport = class {
 };
 
 // index.js
+var CONFIG_DIR = join(homedir(), ".config", "ssh-cluster");
+var KEY_PATH = join(CONFIG_DIR, "id_ed25519");
+var CERT_PATH = join(CONFIG_DIR, "id_ed25519-cert.pub");
+var CERT_TTL_MS = 55 * 60 * 1e3;
 function loadPersistentConfig() {
   try {
-    const configPath = join(homedir(), ".config", "ssh-cluster", "env.json");
-    return JSON.parse(readFileSync(configPath, "utf8"));
+    return JSON.parse(readFileSync(join(CONFIG_DIR, "env.json"), "utf8"));
   } catch {
     return {};
   }
@@ -21032,7 +21035,7 @@ function getRequiredEnv(name) {
   const value = getEnv(name);
   if (!value) {
     throw new Error(
-      `Missing required config: ${name}. Set it in the MCP env or create ~/.config/ssh-cluster/env.json`
+      `Missing required config: ${name}. Set it in the MCP env or in ~/.config/ssh-cluster/env.json`
     );
   }
   return value;
@@ -21044,36 +21047,67 @@ function parsePositiveInt(name, fallback) {
   if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
   return parsed;
 }
-function strictHostKeyEnabled() {
-  const raw = (getEnv("SSH_CLUSTER_STRICT_HOST_KEY") || "true").toLowerCase();
-  return raw !== "false";
+function ensureKeypair() {
+  if (existsSync(KEY_PATH)) return;
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  execSync(`ssh-keygen -t ed25519 -f "${KEY_PATH}" -N "" -C "ssh-cluster-mcp" -q`);
+}
+var certCachedAt = 0;
+async function ensureCert() {
+  if (Date.now() - certCachedAt < CERT_TTL_MS) return;
+  if (existsSync(CERT_PATH)) {
+    const mtime = statSync(CERT_PATH).mtimeMs;
+    if (Date.now() - mtime < CERT_TTL_MS) {
+      certCachedAt = mtime;
+      return;
+    }
+  }
+  const apiUrl = getRequiredEnv("SSH_CLUSTER_API_URL").replace(/\/$/, "");
+  const apiKey = getRequiredEnv("SSH_CLUSTER_API_KEY");
+  const pubKey = readFileSync(`${KEY_PATH}.pub`, "utf8").trim();
+  const resp = await fetch(`${apiUrl}/api/ssh-cert`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": apiKey
+    },
+    body: JSON.stringify({ public_key: pubKey })
+  });
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => "");
+    throw new Error(`cert API returned ${resp.status}: ${body}`);
+  }
+  const data = await resp.json();
+  if (!data.certificate) throw new Error("cert API response missing 'certificate' field");
+  mkdirSync(CONFIG_DIR, { recursive: true });
+  writeFileSync(CERT_PATH, data.certificate + "\n", { mode: 384 });
+  certCachedAt = Date.now();
 }
 function buildSshArgs() {
   const host = getRequiredEnv("SSH_CLUSTER_HOST");
-  const args = [];
+  const args = [
+    "-i",
+    KEY_PATH,
+    // cert at KEY_PATH-cert.pub is picked up automatically
+    "-o",
+    "IdentitiesOnly=yes"
+    // ignore SSH agent / other IdentityFile entries
+  ];
   const port = getEnv("SSH_CLUSTER_PORT");
-  const keyPath = getEnv("SSH_CLUSTER_KEY_PATH");
-  if (port) {
-    args.push("-p", port);
-  }
-  if (keyPath) {
-    args.push("-i", keyPath);
-  }
-  if (!strictHostKeyEnabled()) {
-    args.push(
-      "-o",
-      "StrictHostKeyChecking=no",
-      "-o",
-      "UserKnownHostsFile=/dev/null"
-    );
+  if (port) args.push("-p", port);
+  const strictRaw = (getEnv("SSH_CLUSTER_STRICT_HOST_KEY") || "true").toLowerCase();
+  if (strictRaw === "false") {
+    args.push("-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null");
   }
   args.push(host);
   return args;
 }
-function runSsh({ remoteArgs, stdinText, timeoutMs }) {
+async function runSsh({ remoteArgs, stdinText, timeoutMs }) {
+  ensureKeypair();
+  await ensureCert();
   const maxOutputBytes = parsePositiveInt("SSH_CLUSTER_MAX_OUTPUT_BYTES", 262144);
   const defaultTimeoutMs = parsePositiveInt("SSH_CLUSTER_DEFAULT_TIMEOUT_MS", 12e4);
-  const effectiveTimeoutMs = timeoutMs > 0 ? timeoutMs : defaultTimeoutMs;
+  const effectiveTimeout = timeoutMs > 0 ? timeoutMs : defaultTimeoutMs;
   return new Promise((resolve, reject) => {
     const args = [...buildSshArgs(), ...remoteArgs];
     const child = spawn("ssh", args, { stdio: ["pipe", "pipe", "pipe"] });
@@ -21082,13 +21116,13 @@ function runSsh({ remoteArgs, stdinText, timeoutMs }) {
     let outputBytes = 0;
     let outputTruncated = false;
     const startedAt = Date.now();
-    const stopReadingIfNeeded = (chunk, assign) => {
+    const accumulate = (chunk, assign) => {
       if (outputTruncated) return;
-      const chunkText = chunk.toString("utf8");
-      const nextBytes = outputBytes + Buffer.byteLength(chunkText, "utf8");
+      const text = chunk.toString("utf8");
+      const nextBytes = outputBytes + Buffer.byteLength(text, "utf8");
       if (nextBytes > maxOutputBytes) {
-        const remainingBytes = Math.max(0, maxOutputBytes - outputBytes);
-        const partial2 = Buffer.from(chunkText, "utf8").subarray(0, remainingBytes).toString("utf8");
+        const remaining = Math.max(0, maxOutputBytes - outputBytes);
+        const partial2 = Buffer.from(text, "utf8").subarray(0, remaining).toString("utf8");
         assign((prev) => prev + partial2);
         outputBytes = maxOutputBytes;
         outputTruncated = true;
@@ -21096,58 +21130,37 @@ function runSsh({ remoteArgs, stdinText, timeoutMs }) {
         return;
       }
       outputBytes = nextBytes;
-      assign((prev) => prev + chunkText);
+      assign((prev) => prev + text);
     };
-    child.stdout.on("data", (chunk) => {
-      stopReadingIfNeeded(chunk, (setter) => {
-        stdout = setter(stdout);
-      });
-    });
-    child.stderr.on("data", (chunk) => {
-      stopReadingIfNeeded(chunk, (setter) => {
-        stderr = setter(stderr);
-      });
-    });
-    child.on("error", (error2) => {
-      reject(error2);
-    });
-    const timeout = setTimeout(() => {
-      child.kill("SIGTERM");
-    }, effectiveTimeoutMs);
+    child.stdout.on("data", (chunk) => accumulate(chunk, (s) => {
+      stdout = s(stdout);
+    }));
+    child.stderr.on("data", (chunk) => accumulate(chunk, (s) => {
+      stderr = s(stderr);
+    }));
+    child.on("error", reject);
+    const timer = setTimeout(() => child.kill("SIGTERM"), effectiveTimeout);
     child.on("close", (exitCode, signal) => {
-      clearTimeout(timeout);
+      clearTimeout(timer);
       const durationMs = Date.now() - startedAt;
-      const timedOut = durationMs >= effectiveTimeoutMs && signal !== null;
       resolve({
         exitCode: exitCode ?? -1,
         signal,
-        timedOut,
+        timedOut: durationMs >= effectiveTimeout && signal !== null,
         outputTruncated,
         durationMs,
         stdout,
         stderr
       });
     });
-    if (stdinText) {
-      child.stdin.write(stdinText);
-    }
+    if (stdinText) child.stdin.write(stdinText);
     child.stdin.end();
   });
 }
 function asTextContent(payload) {
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(payload, null, 2)
-      }
-    ]
-  };
+  return { content: [{ type: "text", text: JSON.stringify(payload, null, 2) }] };
 }
-var server = new McpServer({
-  name: "ssh-cluster",
-  version: "0.1.0"
-});
+var server = new McpServer({ name: "ssh-cluster", version: "0.2.0" });
 server.tool(
   "check_connection",
   "Check SSH connectivity and return remote host basics.",
@@ -21158,15 +21171,9 @@ server.tool(
         remoteArgs: ['echo "$(hostname)|$(whoami)|$(pwd)"'],
         timeoutMs: 2e4
       });
-      return asTextContent({
-        ok: result.exitCode === 0 && !result.timedOut,
-        ...result
-      });
+      return asTextContent({ ok: result.exitCode === 0 && !result.timedOut, ...result });
     } catch (error2) {
-      return asTextContent({
-        ok: false,
-        error: String(error2)
-      });
+      return asTextContent({ ok: false, error: String(error2) });
     }
   }
 );
@@ -21180,20 +21187,10 @@ server.tool(
   async ({ command, timeoutMs }) => {
     try {
       const escaped = command.replace(/'/g, "'\\''");
-      const result = await runSsh({
-        remoteArgs: [`bash -lc '${escaped}'`],
-        timeoutMs
-      });
-      return asTextContent({
-        command,
-        ...result
-      });
+      const result = await runSsh({ remoteArgs: [`bash -lc '${escaped}'`], timeoutMs });
+      return asTextContent({ command, ...result });
     } catch (error2) {
-      return asTextContent({
-        command,
-        ok: false,
-        error: String(error2)
-      });
+      return asTextContent({ command, ok: false, error: String(error2) });
     }
   }
 );
@@ -21206,20 +21203,11 @@ server.tool(
   },
   async ({ script, timeoutMs }) => {
     try {
-      const result = await runSsh({
-        remoteArgs: ["bash", "-s"],
-        stdinText: `${script}
-`,
-        timeoutMs
-      });
-      return asTextContent({
-        ...result
-      });
+      const result = await runSsh({ remoteArgs: ["bash", "-s"], stdinText: `${script}
+`, timeoutMs });
+      return asTextContent({ ...result });
     } catch (error2) {
-      return asTextContent({
-        ok: false,
-        error: String(error2)
-      });
+      return asTextContent({ ok: false, error: String(error2) });
     }
   }
 );

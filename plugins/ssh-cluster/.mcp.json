@@ -8,7 +8,8 @@
       "env": {
         "SSH_CLUSTER_HOST": "",
         "SSH_CLUSTER_PORT": "22",
-        "SSH_CLUSTER_KEY_PATH": "",
+        "SSH_CLUSTER_API_URL": "",
+        "SSH_CLUSTER_API_KEY": "",
         "SSH_CLUSTER_STRICT_HOST_KEY": "true",
         "SSH_CLUSTER_MAX_OUTPUT_BYTES": "262144",
         "SSH_CLUSTER_DEFAULT_TIMEOUT_MS": "120000"
