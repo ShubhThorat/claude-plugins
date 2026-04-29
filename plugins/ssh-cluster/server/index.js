@@ -72,7 +72,8 @@ async function ensureCert() {
   const apiKey = getRequiredEnv("SSH_CLUSTER_API_KEY");
   const pubKey = readFileSync(`${KEY_PATH}.pub`, "utf8").trim();
 
-  const resp = await fetch(`${apiUrl}/ssh/cert`, {
+  const username = getRequiredEnv("SSH_CLUSTER_USERNAME");
+  const resp = await fetch(`${apiUrl}/ssh/cert:${username}`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
