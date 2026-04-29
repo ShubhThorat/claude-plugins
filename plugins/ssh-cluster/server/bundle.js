@@ -21052,14 +21052,14 @@ function ensureKeypair() {
   mkdirSync(CONFIG_DIR, { recursive: true });
   execSync(`ssh-keygen -t ed25519 -f "${KEY_PATH}" -N "" -C "ssh-cluster-mcp" -q`);
 }
-var certCachedAt = 0;
+var certCache = { cachedAt: 0, sshHost: "" };
 async function ensureCert() {
-  if (Date.now() - certCachedAt < CERT_TTL_MS) return;
-  if (existsSync(CERT_PATH)) {
+  if (Date.now() - certCache.cachedAt < CERT_TTL_MS) return certCache.sshHost;
+  if (certCache.sshHost && existsSync(CERT_PATH)) {
     const mtime = statSync(CERT_PATH).mtimeMs;
     if (Date.now() - mtime < CERT_TTL_MS) {
-      certCachedAt = mtime;
-      return;
+      certCache.cachedAt = mtime;
+      return certCache.sshHost;
     }
   }
   const apiUrl = getRequiredEnv("SSH_CLUSTER_API_URL").replace(/\/$/, "");
@@ -21080,19 +21080,18 @@ async function ensureCert() {
   }
   const data = await resp.json();
   if (!data.certificate) throw new Error("cert API response missing 'certificate' field");
+  if (!data.user || !data.host) throw new Error("cert API response missing 'user' or 'host' field");
   mkdirSync(CONFIG_DIR, { recursive: true });
   writeFileSync(CERT_PATH, data.certificate + "\n", { mode: 384 });
-  certCachedAt = Date.now();
+  certCache = { cachedAt: Date.now(), sshHost: `${data.user}@${data.host}` };
+  return certCache.sshHost;
 }
-function buildSshArgs() {
-  const host = getRequiredEnv("SSH_CLUSTER_HOST");
+function buildSshArgs(sshHost) {
   const args = [
     "-i",
     KEY_PATH,
-    // cert at KEY_PATH-cert.pub is picked up automatically
     "-o",
     "IdentitiesOnly=yes"
-    // ignore SSH agent / other IdentityFile entries
   ];
   const port = getEnv("SSH_CLUSTER_PORT");
   if (port) args.push("-p", port);
@@ -21100,17 +21099,17 @@ function buildSshArgs() {
   if (strictRaw === "false") {
     args.push("-o", "StrictHostKeyChecking=no", "-o", "UserKnownHostsFile=/dev/null");
   }
-  args.push(host);
+  args.push(sshHost);
   return args;
 }
 async function runSsh({ remoteArgs, stdinText, timeoutMs }) {
   ensureKeypair();
-  await ensureCert();
+  const sshHost = await ensureCert();
   const maxOutputBytes = parsePositiveInt("SSH_CLUSTER_MAX_OUTPUT_BYTES", 262144);
   const defaultTimeoutMs = parsePositiveInt("SSH_CLUSTER_DEFAULT_TIMEOUT_MS", 12e4);
   const effectiveTimeout = timeoutMs > 0 ? timeoutMs : defaultTimeoutMs;
   return new Promise((resolve, reject) => {
-    const args = [...buildSshArgs(), ...remoteArgs];
+    const args = [...buildSshArgs(sshHost), ...remoteArgs];
     const child = spawn("ssh", args, { stdio: ["pipe", "pipe", "pipe"] });
     let stdout = "";
     let stderr = "";

@@ -6,7 +6,6 @@
         "${CLAUDE_PLUGIN_ROOT}/server/bundle.js"
       ],
       "env": {
-        "SSH_CLUSTER_HOST": "",
         "SSH_CLUSTER_PORT": "22",
         "SSH_CLUSTER_API_URL": "",
         "SSH_CLUSTER_API_KEY": "",
