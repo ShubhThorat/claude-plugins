@@ -6798,14 +6798,7 @@ var require_dist = __commonJS({
 });
 
 // index.js
-import { spawn, execSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  statSync,
-  writeFileSync
-} from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
@@ -21022,10 +21015,7 @@ var StdioServerTransport = class {
 };
 
 // index.js
-var CONFIG_DIR = join(homedir(), ".config", "ssh-cluster");
-var KEY_PATH = join(CONFIG_DIR, "id_ed25519");
-var CERT_PATH = join(CONFIG_DIR, "id_ed25519-cert.pub");
-var CERT_TTL_MS = 55 * 60 * 1e3;
+var CONFIG_DIR = join(homedir(), ".config", "luma-api");
 function loadPersistentConfig() {
   try {
     return JSON.parse(readFileSync(join(CONFIG_DIR, "env.json"), "utf8"));
@@ -21047,235 +21037,178 @@ function commonApiServerBaseUrl() {
 function commonApiServerKey() {
   return getEnv("API_SERVER_KEY") || getEnv("API_KEY");
 }
-function resolvedSshClusterApiUrl() {
-  const specific = getEnv("SSH_CLUSTER_API_URL");
+function resolvedLumaApiUrl() {
+  const specific = getEnv("LUMA_API_URL");
   if (specific) return specific.replace(/\/$/, "");
   return commonApiServerBaseUrl();
 }
-function resolvedSshClusterApiKey() {
-  return getEnv("SSH_CLUSTER_API_KEY") || commonApiServerKey();
+function resolvedLumaApiKey() {
+  return getEnv("LUMA_API_KEY") || commonApiServerKey();
 }
-function getRequiredEnv(name) {
-  const value = getEnv(name);
-  if (!value) {
-    throw new Error(
-      `Missing required config: ${name}. Set it in the MCP env or in ~/.config/ssh-cluster/env.json`
-    );
-  }
-  return value;
-}
-function requireSshClusterApiUrl() {
-  const u = resolvedSshClusterApiUrl();
+function requireLumaApiUrl() {
+  const u = resolvedLumaApiUrl();
   if (!u) {
     throw new Error(
-      "Missing API base URL: set SSH_CLUSTER_API_URL or API_SERVER_URL (or API_SERVER_HOST) in MCP env or ~/.config/ssh-cluster/env.json"
+      "Missing API base URL: set LUMA_API_URL or API_SERVER_URL (or API_SERVER_HOST) in MCP env or ~/.config/luma-api/env.json"
     );
   }
   return u;
 }
-function requireSshClusterApiKey() {
-  const k = resolvedSshClusterApiKey();
+function requireLumaApiKey() {
+  const k = resolvedLumaApiKey();
   if (!k) {
     throw new Error(
-      "Missing API key: set SSH_CLUSTER_API_KEY or API_SERVER_KEY (or API_KEY) in MCP env or ~/.config/ssh-cluster/env.json"
+      "Missing API key: set LUMA_API_KEY or API_SERVER_KEY (or API_KEY) in MCP env or ~/.config/luma-api/env.json"
     );
   }
   return k;
 }
-function parsePositiveInt(name, fallback) {
-  const raw = getEnv(name);
-  if (!raw) return fallback;
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
-  return parsed;
-}
-function ensureKeypair() {
-  if (existsSync(KEY_PATH)) return;
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  execSync(
-    `ssh-keygen -t ed25519 -f "${KEY_PATH}" -N "" -C "ssh-cluster-mcp" -q`
-  );
-}
-var certCache = { cachedAt: 0, sshHost: "" };
-async function ensureCert() {
-  if (Date.now() - certCache.cachedAt < CERT_TTL_MS) return certCache.sshHost;
-  if (certCache.sshHost && existsSync(CERT_PATH)) {
-    const mtime = statSync(CERT_PATH).mtimeMs;
-    if (Date.now() - mtime < CERT_TTL_MS) {
-      certCache.cachedAt = mtime;
-      return certCache.sshHost;
+async function lumaGet(pathname, query) {
+  const base = requireLumaApiUrl();
+  const key = requireLumaApiKey();
+  const root = base.endsWith("/") ? base : `${base}/`;
+  const u = new URL(pathname.replace(/^\//, ""), root);
+  for (const [k, v] of Object.entries(query || {})) {
+    if (v === void 0 || v === null || v === "") continue;
+    if (typeof v === "boolean") {
+      if (v) u.searchParams.set(k, "true");
+      continue;
     }
+    u.searchParams.set(k, String(v));
   }
-  const apiUrl = requireSshClusterApiUrl();
-  const apiKey = requireSshClusterApiKey();
-  const pubKey = readFileSync(`${KEY_PATH}.pub`, "utf8").trim();
-  const username = getRequiredEnv("SSH_CLUSTER_USERNAME");
-  const resp = await fetch(`${apiUrl}/ssh/cert:${username}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": apiKey
-    },
-    body: JSON.stringify({ public_key: pubKey })
+  const resp = await fetch(u, {
+    method: "GET",
+    headers: { "X-API-Key": key, Accept: "application/json" }
   });
+  const text = await resp.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = { _raw: text };
+  }
   if (!resp.ok) {
-    const body = await resp.text().catch(() => "");
-    throw new Error(`cert API returned ${resp.status}: ${body}`);
+    const err = new Error(`Luma API ${resp.status}: ${text.slice(0, 500)}`);
+    err.status = resp.status;
+    err.body = data;
+    throw err;
   }
-  const data = await resp.json();
-  if (!data.certificate)
-    throw new Error("cert API response missing 'certificate' field");
-  if (!data.user || !data.host)
-    throw new Error("cert API response missing 'user' or 'host' field");
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(CERT_PATH, data.certificate + "\n", { mode: 384 });
-  certCache = { cachedAt: Date.now(), sshHost: `${data.user}@${data.host}` };
-  return certCache.sshHost;
-}
-function buildSshArgs(sshHost) {
-  const args = ["-i", KEY_PATH, "-o", "IdentitiesOnly=yes"];
-  const port = getEnv("SSH_CLUSTER_PORT");
-  if (port) args.push("-p", port);
-  const strictRaw = (getEnv("SSH_CLUSTER_STRICT_HOST_KEY") || "true").toLowerCase();
-  if (strictRaw === "false") {
-    args.push(
-      "-o",
-      "StrictHostKeyChecking=no",
-      "-o",
-      "UserKnownHostsFile=/dev/null"
-    );
-  }
-  args.push(sshHost);
-  return args;
-}
-async function runSsh({ remoteArgs, stdinText, timeoutMs }) {
-  ensureKeypair();
-  const sshHost = await ensureCert();
-  const maxOutputBytes = parsePositiveInt(
-    "SSH_CLUSTER_MAX_OUTPUT_BYTES",
-    262144
-  );
-  const defaultTimeoutMs = parsePositiveInt(
-    "SSH_CLUSTER_DEFAULT_TIMEOUT_MS",
-    12e4
-  );
-  const effectiveTimeout = timeoutMs > 0 ? timeoutMs : defaultTimeoutMs;
-  return new Promise((resolve, reject) => {
-    const args = [...buildSshArgs(sshHost), ...remoteArgs];
-    const child = spawn("ssh", args, { stdio: ["pipe", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    let outputBytes = 0;
-    let outputTruncated = false;
-    const startedAt = Date.now();
-    const accumulate = (chunk, assign) => {
-      if (outputTruncated) return;
-      const text = chunk.toString("utf8");
-      const nextBytes = outputBytes + Buffer.byteLength(text, "utf8");
-      if (nextBytes > maxOutputBytes) {
-        const remaining = Math.max(0, maxOutputBytes - outputBytes);
-        const partial2 = Buffer.from(text, "utf8").subarray(0, remaining).toString("utf8");
-        assign((prev) => prev + partial2);
-        outputBytes = maxOutputBytes;
-        outputTruncated = true;
-        child.kill("SIGTERM");
-        return;
-      }
-      outputBytes = nextBytes;
-      assign((prev) => prev + text);
-    };
-    child.stdout.on(
-      "data",
-      (chunk) => accumulate(chunk, (s) => {
-        stdout = s(stdout);
-      })
-    );
-    child.stderr.on(
-      "data",
-      (chunk) => accumulate(chunk, (s) => {
-        stderr = s(stderr);
-      })
-    );
-    child.on("error", reject);
-    const timer = setTimeout(() => child.kill("SIGTERM"), effectiveTimeout);
-    child.on("close", (exitCode, signal) => {
-      clearTimeout(timer);
-      const durationMs = Date.now() - startedAt;
-      resolve({
-        exitCode: exitCode ?? -1,
-        signal,
-        timedOut: durationMs >= effectiveTimeout && signal !== null,
-        outputTruncated,
-        durationMs,
-        stdout,
-        stderr
-      });
-    });
-    if (stdinText) child.stdin.write(stdinText);
-    child.stdin.end();
-  });
+  return data;
 }
 function asTextContent(payload) {
   return {
     content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
   };
 }
-var server = new McpServer({ name: "ssh-cluster", version: "0.3.1" });
+var server = new McpServer({ name: "luma-api", version: "0.1.0" });
 server.tool(
-  "check_connection",
-  "Check SSH connectivity and return remote host basics.",
-  {},
-  async () => {
+  "luma_discover",
+  "Fetch Luma Discover compact JSON (places, categories, calendars, hydration lat/lon) from your API server.",
+  {
+    url: external_exports.string().url().optional(),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ url, timeout }) => {
     try {
-      const result = await runSsh({
-        remoteArgs: ['echo "$(hostname)|$(whoami)|$(pwd)"'],
-        timeoutMs: 2e4
-      });
-      return asTextContent({
-        ok: result.exitCode === 0 && !result.timedOut,
-        ...result
-      });
+      const q = {};
+      if (url) q.url = url;
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet("/api/luma/discover", q);
+      return asTextContent(data);
     } catch (error2) {
       return asTextContent({ ok: false, error: String(error2) });
     }
   }
 );
 server.tool(
-  "run_remote_command",
-  "Run a shell command on the remote SSH cluster.",
+  "luma_events_by_place",
+  "List paginated Luma events for a discover_place_api_id (e.g. discplace-\u2026).",
   {
-    command: external_exports.string().min(1),
-    timeoutMs: external_exports.number().int().positive().optional()
+    place_id: external_exports.string().min(1),
+    pagination_limit: external_exports.number().int().positive().max(100).optional(),
+    cursor: external_exports.string().optional(),
+    fetch_all: external_exports.boolean().optional(),
+    max_pages: external_exports.number().int().positive().max(500).optional(),
+    timeout: external_exports.number().int().positive().max(120).optional()
   },
-  async ({ command, timeoutMs }) => {
+  async (args) => {
     try {
-      const escaped = command.replace(/'/g, "'\\''");
-      const result = await runSsh({
-        remoteArgs: [`bash -lc '${escaped}'`],
-        timeoutMs
-      });
-      return asTextContent({ command, ...result });
+      const { place_id, ...q } = args;
+      const data = await lumaGet(
+        `/api/luma/events/place/${encodeURIComponent(place_id)}`,
+        q
+      );
+      return asTextContent(data);
     } catch (error2) {
-      return asTextContent({ command, ok: false, error: String(error2) });
+      return asTextContent({ ok: false, error: String(error2) });
     }
   }
 );
 server.tool(
-  "run_remote_script",
-  "Run a multiline script on the remote SSH cluster using bash stdin.",
+  "luma_events_by_category",
+  "List paginated Luma events near latitude/longitude for a category slug (e.g. wellness).",
   {
-    script: external_exports.string().min(1),
-    timeoutMs: external_exports.number().int().positive().optional()
+    slug: external_exports.string().min(1),
+    latitude: external_exports.string().min(1),
+    longitude: external_exports.string().min(1),
+    pagination_limit: external_exports.number().int().positive().max(100).optional(),
+    cursor: external_exports.string().optional(),
+    fetch_all: external_exports.boolean().optional(),
+    max_pages: external_exports.number().int().positive().max(500).optional(),
+    timeout: external_exports.number().int().positive().max(120).optional()
   },
-  async ({ script, timeoutMs }) => {
+  async ({ slug, latitude, longitude, ...q }) => {
     try {
-      const result = await runSsh({
-        remoteArgs: ["bash", "-s"],
-        stdinText: `${script}
-`,
-        timeoutMs
-      });
-      return asTextContent({ ...result });
+      const data = await lumaGet(
+        `/api/luma/events/category/${encodeURIComponent(slug)}`,
+        { latitude, longitude, ...q }
+      );
+      return asTextContent(data);
+    } catch (error2) {
+      return asTextContent({ ok: false, error: String(error2) });
+    }
+  }
+);
+server.tool(
+  "luma_calendar_items",
+  "List upcoming calendar rows (slim) for a Luma calendar_api_id.",
+  {
+    calendar_api_id: external_exports.string().min(1),
+    period: external_exports.string().optional(),
+    pagination_limit: external_exports.number().int().positive().max(100).optional(),
+    cursor: external_exports.string().optional(),
+    fetch_all: external_exports.boolean().optional(),
+    max_pages: external_exports.number().int().positive().max(500).optional(),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ calendar_api_id, ...q }) => {
+    try {
+      const data = await lumaGet(
+        `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}/items`,
+        q
+      );
+      return asTextContent(data);
+    } catch (error2) {
+      return asTextContent({ ok: false, error: String(error2) });
+    }
+  }
+);
+server.tool(
+  "luma_calendar_full",
+  "Fetch full Luma calendar/get JSON (hosts, tags, featured_items with urls) for a calendar_api_id. Large payload.",
+  {
+    calendar_api_id: external_exports.string().min(1),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ calendar_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet(
+        `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}`,
+        q
+      );
+      return asTextContent(data);
     } catch (error2) {
       return asTextContent({ ok: false, error: String(error2) });
     }

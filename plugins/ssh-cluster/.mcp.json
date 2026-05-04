@@ -2,10 +2,12 @@
   "mcpServers": {
     "ssh-cluster": {
       "command": "node",
-      "args": [
-        "${CLAUDE_PLUGIN_ROOT}/server/bundle.js"
-      ],
+      "args": ["${CLAUDE_PLUGIN_ROOT}/server/bundle.js"],
       "env": {
+        "API_SERVER_URL": "",
+        "API_SERVER_HOST": "",
+        "API_SERVER_KEY": "",
+        "API_KEY": "",
         "SSH_CLUSTER_PORT": "22",
         "SSH_CLUSTER_API_URL": "",
         "SSH_CLUSTER_API_KEY": "",

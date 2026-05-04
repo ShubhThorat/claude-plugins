@@ -27,6 +27,13 @@
       "source": "./plugins/ssh-cluster",
       "category": "developer-tools",
       "homepage": "https://www.openssh.com/"
+    },
+    {
+      "name": "luma-api",
+      "description": "Luma Discover + events + calendar MCP — calls your API /api/luma/* routes (separate from SSH).",
+      "source": "./plugins/luma-api",
+      "category": "external-integrations",
+      "homepage": "https://luma.com"
     }
   ]
 }

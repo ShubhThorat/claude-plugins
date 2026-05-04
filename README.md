@@ -24,6 +24,7 @@ Then install individual plugins:
 /plugin install public@shubhthorat
 /plugin install perplexity@shubhthorat
 /plugin install ssh-cluster@shubhthorat
+/plugin install luma-api@shubhthorat
 ```
 
 ```
@@ -50,7 +51,13 @@ Connect Claude to Perplexity for real-time web search, conversational ask, deep 
 
 Connect Claude to any SSH-accessible cluster (HPC/GPU/bastion-backed) using a custom MCP wrapper with command and script execution tools.
 
-**Server:** `node server/index.js`
+**Server:** `node server/bundle.js`
+
+### [Luma API](./plugins/luma-api)
+
+Read-only Luma data (Discover, events, calendars) via your HTTP API’s `/api/luma/*` routes — **separate MCP** from SSH cluster.
+
+**Server:** `node server/bundle.js`
 
 ---
 
@@ -58,8 +65,9 @@ Connect Claude to any SSH-accessible cluster (HPC/GPU/bastion-backed) using a cu
 
 This repo is the plugin marketplace definition. It contains plugin metadata and MCP configuration for each integration.
 
-| Plugin | Source |
-|--------|--------|
-| public | [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server) |
-| perplexity | [Perplexity MCP](https://github.com/perplexityai/modelcontextprotocol) |
-| ssh-cluster | [OpenSSH](https://www.openssh.com/) |
+| Plugin      | Source                                                                           |
+| ----------- | -------------------------------------------------------------------------------- |
+| public      | [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server) |
+| perplexity  | [Perplexity MCP](https://github.com/perplexityai/modelcontextprotocol)           |
+| ssh-cluster | [OpenSSH](https://www.openssh.com/)                                              |
+| luma-api    | [Luma](https://luma.com) + your API `/api/luma/*`                                |

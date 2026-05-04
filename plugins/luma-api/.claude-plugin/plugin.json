@@ -1,0 +1,7 @@
+{
+  "name": "luma-api",
+  "description": "Luma Discover + events + calendar MCP — HTTP to your API /api/luma/* routes (separate from SSH).",
+  "author": {
+    "name": "Shubh Thorat"
+  }
+}

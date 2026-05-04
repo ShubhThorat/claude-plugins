@@ -1,66 +1,68 @@
-# SSH Cluster Plugin
+# SSH Cluster MCP
 
-Generic SSH cluster integration for Claude using a custom MCP wrapper. This plugin lets Claude execute shell commands and scripts on any SSH-accessible machine, including HPC and GPU clusters.
+Claude MCP plugin: mint a short-lived SSH user cert from your API, then run remote commands on your cluster.
 
 ## Tools
 
-- `check_connection`: Validate SSH access and return hostname/user/working directory.
-- `run_remote_command`: Execute a one-line command using `bash -lc`.
-- `run_remote_script`: Execute a multiline script via `bash -s`.
+- `check_connection` — hostname, user, cwd over SSH.
+- `run_remote_command` — one line via `bash -lc`.
+- `run_remote_script` — multiline script via `bash -s`.
 
-## Environment Variables
+**Luma** (Discover / events / calendars) lives in a **separate** plugin: **`luma-api`** in this marketplace.
 
-Set these in Claude/plugin env before starting:
+## Environment variables
 
-- `SSH_CLUSTER_HOST`: required; either `user@host` or an SSH config alias.
-- `SSH_CLUSTER_PORT`: optional; default `22`.
-- `SSH_CLUSTER_KEY_PATH`: optional; private key path.
-- `SSH_CLUSTER_STRICT_HOST_KEY`: optional; `true` by default.
-- `SSH_CLUSTER_MAX_OUTPUT_BYTES`: optional; max total stdout+stderr bytes (default `262144`).
-- `SSH_CLUSTER_DEFAULT_TIMEOUT_MS`: optional; default command timeout in ms (default `120000`).
+Set in the MCP `env` block or in **`~/.config/ssh-cluster/env.json`** (MCP env overrides the file per key).
+
+### Optional shared deployment
+
+| Variable | Meaning |
+|----------|--------|
+| `API_SERVER_URL` | Base URL, e.g. `https://your-api.vercel.app` |
+| `API_SERVER_HOST` | Host only if you prefer; `https://` added if missing |
+| `API_SERVER_KEY` | `X-API-Key` for cert minting |
+| `API_KEY` | Used if `API_SERVER_KEY` is empty |
+
+If **`API_SERVER_URL`** (or host) **and** a key are set, you may omit **`SSH_CLUSTER_API_URL`** and **`SSH_CLUSTER_API_KEY`**.
+
+### SSH-specific
+
+| Variable | Required | Notes |
+|----------|----------|--------|
+| `SSH_CLUSTER_USERNAME` | **Yes** | Path segment for `POST …/ssh/cert:username` |
+| `SSH_CLUSTER_API_URL` | No* | Overrides shared base for cert API only |
+| `SSH_CLUSTER_API_KEY` | No* | Overrides shared key |
+| `SSH_CLUSTER_PORT` | No | Default `22` |
+| `SSH_CLUSTER_STRICT_HOST_KEY` | No | Default `true` |
+| `SSH_CLUSTER_MAX_OUTPUT_BYTES` | No | Default `262144` |
+| `SSH_CLUSTER_DEFAULT_TIMEOUT_MS` | No | Default `120000` |
+
+### Example (`~/.config/ssh-cluster/env.json`)
+
+```json
+{
+  "API_SERVER_URL": "https://your-api.vercel.app",
+  "API_SERVER_KEY": "your-key",
+  "SSH_CLUSTER_USERNAME": "yourname"
+}
+```
 
 ## Setup
 
-### 1. Add an SSH config alias (recommended)
+1. Configure env (above).
+2. `/reload-plugins` in Claude Code.
 
-Add an entry to `~/.ssh/config`:
+Rebuild after editing `server/index.js`:
 
-```
-Host my-cluster
-  HostName login.mycluster.edu
-  User myusername
-  IdentityFile ~/.ssh/id_rsa
+```bash
+cd server && npm install && npm run build
 ```
 
-### 2. Create a persistent config file
-
-Create `~/.config/ssh-cluster/env.json` with your settings — this survives plugin reinstalls and reloads:
-
-```json
-{
-  "SSH_CLUSTER_HOST": "my-cluster"
-}
-```
-
-Or use a full `user@host` string:
-
-```json
-{
-  "SSH_CLUSTER_HOST": "myusername@login.mycluster.edu"
-}
-```
-
-Any of the environment variables listed above can go in this file. Values set in the MCP env take precedence over the file.
-
-### 3. Reload plugins
-
-Run `/reload-plugins` in Claude Code. No install step required — the server is pre-bundled.
-
-## Local Development
+## Local development
 
 ```bash
 cd server
 npm install
-npm run build   # rebuilds server/bundle.js
+npm run build
 npm start
 ```
