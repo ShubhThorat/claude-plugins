@@ -55,7 +55,7 @@ Connect Claude to any SSH-accessible cluster (HPC/GPU/bastion-backed) using a cu
 
 ### [Luma API](./plugins/luma-api)
 
-Read-only Luma data (Discover, events, calendars) via your HTTP API’s `/api/luma/*` routes — **separate MCP** from SSH cluster.
+Read-only Luma data (Discover, events, calendars) via public **`GET /api/luma/*`** (default host **api.shubhthorat.com**) — **separate MCP** from SSH; no env required.
 
 **Server:** `node server/bundle.js`
 

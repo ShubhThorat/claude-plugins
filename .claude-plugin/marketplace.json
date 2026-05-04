@@ -30,7 +30,7 @@
     },
     {
       "name": "luma-api",
-      "description": "Luma Discover + events + calendar MCP — calls your API /api/luma/* routes (separate from SSH).",
+      "description": "Luma Discover + events + calendar MCP — public /api/luma/* proxy by default; optional env for self-host.",
       "source": "./plugins/luma-api",
       "category": "external-integrations",
       "homepage": "https://luma.com"

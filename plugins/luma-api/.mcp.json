@@ -3,14 +3,7 @@
     "luma-api": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/server/bundle.js"],
-      "env": {
-        "API_SERVER_URL": "",
-        "API_SERVER_HOST": "",
-        "API_SERVER_KEY": "",
-        "API_KEY": "",
-        "LUMA_API_URL": "",
-        "LUMA_API_KEY": ""
-      }
+      "env": {}
     }
   }
 }

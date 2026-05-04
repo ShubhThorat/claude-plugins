@@ -5,7 +5,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-// ── Config (separate MCP from ssh-cluster; own ~/.config/luma-api/env.json) ───
+// ── Config (all optional: defaults hit public pass-through proxy) ─────────────
+
+/** Used when no `LUMA_API_URL` / `API_SERVER_URL` / `API_SERVER_HOST` is set. */
+const DEFAULT_LUMA_PROXY_BASE = "https://api.shubhthorat.com";
 
 const CONFIG_DIR = join(homedir(), ".config", "luma-api");
 
@@ -45,43 +48,28 @@ function resolvedLumaApiKey() {
   return getEnv("LUMA_API_KEY") || commonApiServerKey();
 }
 
-function requireLumaApiUrl() {
+function lumaBaseUrl() {
   const u = resolvedLumaApiUrl();
-  if (!u) {
-    throw new Error(
-      "Missing API base URL: set LUMA_API_URL or API_SERVER_URL (or API_SERVER_HOST) in MCP env or ~/.config/luma-api/env.json",
-    );
-  }
-  return u;
-}
-
-function requireLumaApiKey() {
-  const k = resolvedLumaApiKey();
-  if (!k) {
-    throw new Error(
-      "Missing API key: set LUMA_API_KEY or API_SERVER_KEY (or API_KEY) in MCP env or ~/.config/luma-api/env.json",
-    );
-  }
-  return k;
+  if (u) return u;
+  return DEFAULT_LUMA_PROXY_BASE.replace(/\/$/, "");
 }
 
 async function lumaGet(pathname, query) {
-  const base = requireLumaApiUrl();
-  const key = requireLumaApiKey();
+  const base = lumaBaseUrl();
+  const apiKey = resolvedLumaApiKey();
   const root = base.endsWith("/") ? base : `${base}/`;
   const u = new URL(pathname.replace(/^\//, ""), root);
-  for (const [k, v] of Object.entries(query || {})) {
-    if (v === undefined || v === null || v === "") continue;
-    if (typeof v === "boolean") {
-      if (v) u.searchParams.set(k, "true");
+  for (const [qk, qv] of Object.entries(query || {})) {
+    if (qv === undefined || qv === null || qv === "") continue;
+    if (typeof qv === "boolean") {
+      if (qv) u.searchParams.set(qk, "true");
       continue;
     }
-    u.searchParams.set(k, String(v));
+    u.searchParams.set(qk, String(qv));
   }
-  const resp = await fetch(u, {
-    method: "GET",
-    headers: { "X-API-Key": key, Accept: "application/json" },
-  });
+  const headers = { Accept: "application/json" };
+  if (apiKey) headers["X-API-Key"] = apiKey;
+  const resp = await fetch(u, { method: "GET", headers });
   const text = await resp.text();
   let data;
   try {
@@ -106,11 +94,11 @@ function asTextContent(payload) {
 
 // ── MCP tools ─────────────────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "luma-api", version: "0.1.0" });
+const server = new McpServer({ name: "luma-api", version: "0.2.0" });
 
 server.tool(
   "luma_discover",
-  "Fetch Luma Discover compact JSON (places, categories, calendars, hydration lat/lon) from your API server.",
+  "Fetch Luma Discover compact JSON (places, categories, calendars, hydration lat/lon) from the public API proxy.",
   {
     url: z.string().url().optional(),
     timeout: z.number().int().positive().max(120).optional(),

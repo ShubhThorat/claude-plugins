@@ -1,6 +1,6 @@
 # Luma API MCP
 
-Separate MCP from **ssh-cluster**: read-only calls to your deployment’s **`GET /api/luma/*`** routes (Discover, paginated events, calendar items, full calendar). Uses **`X-API-Key`** only — no SSH.
+Calls **`GET https://api.shubhthorat.com/api/luma/*`** by default — **no env or API key required**. Optional env overrides if you self-host or want an `X-API-Key` header.
 
 ## Tools
 
@@ -10,55 +10,20 @@ Separate MCP from **ssh-cluster**: read-only calls to your deployment’s **`GET
 - `luma_calendar_items` — slim upcoming rows for a `calendar_api_id`.
 - `luma_calendar_full` — full `calendar/get` payload (large).
 
-Your API key must allow **`/api/luma`** (or `["*"]`) on the server.
+## Environment (optional)
 
-## Environment variables
+| Variable | When to set |
+|----------|-------------|
+| `LUMA_API_URL` | Different base than `https://api.shubhthorat.com` |
+| `API_SERVER_URL` / `API_SERVER_HOST` | Same, if you prefer shared naming |
+| `LUMA_API_KEY` / `API_SERVER_KEY` / `API_KEY` | Only if your proxy requires `X-API-Key` |
 
-Set in the MCP `env` block or **`~/.config/luma-api/env.json`** (process env wins per key).
-
-### Optional common deployment
-
-| Variable | Meaning |
-|----------|--------|
-| `API_SERVER_URL` | Base URL, e.g. `https://your-api.vercel.app` |
-| `API_SERVER_HOST` | Host only; `https://` added if missing |
-| `API_SERVER_KEY` | `X-API-Key` |
-| `API_KEY` | Fallback if `API_SERVER_KEY` is empty |
-
-When **`API_SERVER_URL`** (or host) **and** a key are set, you may omit **`LUMA_API_URL`** and **`LUMA_API_KEY`**.
-
-### Luma-specific overrides
-
-| Variable | Notes |
-|----------|--------|
-| `LUMA_API_URL` | Base URL for these tools only |
-| `LUMA_API_KEY` | Key for Luma only |
-
-### Example
-
-```json
-{
-  "API_SERVER_URL": "https://your-api.vercel.app",
-  "API_SERVER_KEY": "your-key"
-}
-```
+Persistent file (optional): `~/.config/luma-api/env.json` — same keys; process env wins per key.
 
 ## Setup
 
-1. Configure env (above).
-2. `/reload-plugins` in Claude Code.
-
-Rebuild after editing `server/index.js`:
+`/reload-plugins` after install. Rebuild after editing `server/index.js`:
 
 ```bash
 cd server && npm install && npm run build
-```
-
-## Local development
-
-```bash
-cd server
-npm install
-npm run build
-npm start
 ```
