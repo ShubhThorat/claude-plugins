@@ -26,3 +26,16 @@ Persistent file (optional): `~/.config/amc-api/env.json` — same keys; process 
 ```bash
 cd server && npm install && npm run build
 ```
+
+## Cookie helper skill (repo-local)
+
+This plugin also includes a local skill and helper script for extracting Chrome
+cookies (for Queue-it and seats flows):
+
+```bash
+python3 plugins/amc-api/tools/getcookies.py amctheatres.com
+```
+
+Skill path:
+
+- `plugins/amc-api/skills/get-domain-cookies/SKILL.md`
