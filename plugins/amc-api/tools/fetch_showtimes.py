@@ -148,15 +148,6 @@ SHOWTIMES_QUERY = """
           groups(first: 100) {
             edges {
               node {
-                movie {
-                  name
-                  slug
-                  movieId
-                  mpaaRating
-                  runTime
-                  genre
-                  synopsis
-                }
                 showtimes(first: 200) {
                   edges {
                     node {
@@ -165,6 +156,15 @@ SHOWTIMES_QUERY = """
                       status
                       auditorium
                       isReservedSeating
+                      movie {
+                        name
+                        slug
+                        movieId
+                        mpaaRating
+                        runTime
+                        genre
+                        synopsis
+                      }
                     }
                   }
                 }
@@ -199,6 +199,7 @@ def _format_showtimes(raw: dict, filter_date: date_type, filter_movie: str = "",
     format_filter_lc = filter_format.lower() if filter_format else ""
 
     movies_out = {}
+    seen_ids = set()
 
     for item in theatre.get("formats", {}).get("items") or []:
         fmt_attrs = [a["name"] for a in (item.get("attributes") or [])]
@@ -211,55 +212,58 @@ def _format_showtimes(raw: dict, filter_date: date_type, filter_movie: str = "",
             continue
 
         for ge in (item.get("groups", {}).get("edges") or []):
-            node  = ge["node"]
-            movie = node.get("movie") or {}
-            mname = movie.get("name", "Unknown")
-
-            if movie_filter_lc and movie_filter_lc not in mname.lower():
-                continue
-
-            slug = movie.get("slug", "")
-            if slug not in movies_out:
-                movies_out[slug] = {
-                    "movie":       mname,
-                    "slug":        slug,
-                    "movieId":     movie.get("movieId"),
-                    "mpaaRating":  movie.get("mpaaRating"),
-                    "runTime":     movie.get("runTime"),
-                    "genre":       movie.get("genre"),
-                    "synopsis":    movie.get("synopsis"),
-                    "showtimes":   [],
-                }
+            node = ge["node"]
 
             for se in (node.get("showtimes", {}).get("edges") or []):
-                st = se["node"]
+                st    = se["node"]
+                st_id = st.get("showtimeId")
+
+                # each showtime carries its own correct movie — use that, not group.movie
+                movie = st.get("movie") or {}
+                mname = movie.get("name", "Unknown")
+
+                if movie_filter_lc and movie_filter_lc not in mname.lower():
+                    continue
+
+                # deduplicate: same showtime can appear in multiple format groups
+                if st_id in seen_ids:
+                    continue
+                seen_ids.add(st_id)
+
                 utc = st.get("showDateTimeUtc", "")
                 try:
-                    st_date = datetime.fromisoformat(
-                        utc.replace("Z", "+00:00")
-                    ).date()
+                    dt_utc = datetime.fromisoformat(utc.replace("Z", "+00:00"))
                 except Exception:
                     continue
 
                 # AMC business day: a show at 00:00-03:59 UTC belongs to prior calendar day
-                business_date = st_date
-                try:
-                    dt_utc = datetime.fromisoformat(utc.replace("Z", "+00:00"))
-                    if dt_utc.hour < 4:
-                        business_date = (dt_utc - timedelta(days=1)).date()
-                except Exception:
-                    pass
+                business_date = dt_utc.date()
+                if dt_utc.hour < 4:
+                    business_date = (dt_utc - timedelta(days=1)).date()
 
                 if business_date != filter_date:
                     continue
 
+                slug = movie.get("slug", "")
+                if slug not in movies_out:
+                    movies_out[slug] = {
+                        "movie":       mname,
+                        "slug":        slug,
+                        "movieId":     movie.get("movieId"),
+                        "mpaaRating":  movie.get("mpaaRating"),
+                        "runTime":     movie.get("runTime"),
+                        "genre":       movie.get("genre"),
+                        "synopsis":    movie.get("synopsis"),
+                        "showtimes":   [],
+                    }
+
                 movies_out[slug]["showtimes"].append({
-                    "showtimeId":       st.get("showtimeId"),
-                    "showDateTimeUtc":  utc,
-                    "timeET":           _utc_to_et(utc),
-                    "format":           fmt_name,
-                    "status":           st.get("status"),
-                    "auditorium":       st.get("auditorium"),
+                    "showtimeId":        st_id,
+                    "showDateTimeUtc":   utc,
+                    "timeET":            _utc_to_et(utc),
+                    "format":            fmt_name,
+                    "status":            st.get("status"),
+                    "auditorium":        st.get("auditorium"),
                     "isReservedSeating": st.get("isReservedSeating"),
                 })
 
