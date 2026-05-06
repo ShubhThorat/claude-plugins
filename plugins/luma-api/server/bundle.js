@@ -21087,7 +21087,7 @@ function asTextContent(payload) {
     content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
   };
 }
-var server = new McpServer({ name: "luma-api", version: "0.2.0" });
+var server = new McpServer({ name: "luma-api", version: "0.3.0" });
 server.tool(
   "luma_discover",
   "Fetch Luma Discover compact JSON (places, categories, calendars, hydration lat/lon) from the public API proxy.",
@@ -21193,6 +21193,63 @@ server.tool(
       if (timeout) q.timeout = timeout;
       const data = await lumaGet(
         `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}`,
+        q
+      );
+      return asTextContent(data);
+    } catch (error2) {
+      return asTextContent({ ok: false, error: String(error2) });
+    }
+  }
+);
+server.tool(
+  "luma_event_detail",
+  "Fetch full detail for a Luma event by api_id (evt-\u2026): name, times, location, hosts with socials, tickets, guest_count, registration status.",
+  {
+    event_api_id: external_exports.string().min(1),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ event_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet("/api/luma/event", { id: event_api_id, ...q });
+      return asTextContent(data);
+    } catch (error2) {
+      return asTextContent({ ok: false, error: String(error2) });
+    }
+  }
+);
+server.tool(
+  "luma_event_guests",
+  "Get public featured attendees for a Luma event (up to 10 profiles with name, username, bio, twitter, instagram, linkedin, etc.) plus total guest_count.",
+  {
+    event_api_id: external_exports.string().min(1),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ event_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet("/api/luma/event/guests", { id: event_api_id, ...q });
+      return asTextContent(data);
+    } catch (error2) {
+      return asTextContent({ ok: false, error: String(error2) });
+    }
+  }
+);
+server.tool(
+  "luma_calendar_profile",
+  "Fetch organizer profile for a Luma calendar (name, slug, socials, bio, city, verified, luma_plus, tags).",
+  {
+    calendar_api_id: external_exports.string().min(1),
+    timeout: external_exports.number().int().positive().max(120).optional()
+  },
+  async ({ calendar_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet(
+        `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}/profile`,
         q
       );
       return asTextContent(data);

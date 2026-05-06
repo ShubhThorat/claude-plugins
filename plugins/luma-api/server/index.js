@@ -94,7 +94,7 @@ function asTextContent(payload) {
 
 // ── MCP tools ─────────────────────────────────────────────────────────────────
 
-const server = new McpServer({ name: "luma-api", version: "0.2.0" });
+const server = new McpServer({ name: "luma-api", version: "0.3.0" });
 
 server.tool(
   "luma_discover",
@@ -205,6 +205,66 @@ server.tool(
       if (timeout) q.timeout = timeout;
       const data = await lumaGet(
         `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}`,
+        q,
+      );
+      return asTextContent(data);
+    } catch (error) {
+      return asTextContent({ ok: false, error: String(error) });
+    }
+  },
+);
+
+server.tool(
+  "luma_event_detail",
+  "Fetch full detail for a Luma event by api_id (evt-…): name, times, location, hosts with socials, tickets, guest_count, registration status.",
+  {
+    event_api_id: z.string().min(1),
+    timeout: z.number().int().positive().max(120).optional(),
+  },
+  async ({ event_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet("/api/luma/event", { id: event_api_id, ...q });
+      return asTextContent(data);
+    } catch (error) {
+      return asTextContent({ ok: false, error: String(error) });
+    }
+  },
+);
+
+server.tool(
+  "luma_event_guests",
+  "Get public featured attendees for a Luma event (up to 10 profiles with name, username, bio, twitter, instagram, linkedin, etc.) plus total guest_count.",
+  {
+    event_api_id: z.string().min(1),
+    timeout: z.number().int().positive().max(120).optional(),
+  },
+  async ({ event_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet("/api/luma/event/guests", { id: event_api_id, ...q });
+      return asTextContent(data);
+    } catch (error) {
+      return asTextContent({ ok: false, error: String(error) });
+    }
+  },
+);
+
+server.tool(
+  "luma_calendar_profile",
+  "Fetch organizer profile for a Luma calendar (name, slug, socials, bio, city, verified, luma_plus, tags).",
+  {
+    calendar_api_id: z.string().min(1),
+    timeout: z.number().int().positive().max(120).optional(),
+  },
+  async ({ calendar_api_id, timeout }) => {
+    try {
+      const q = {};
+      if (timeout) q.timeout = timeout;
+      const data = await lumaGet(
+        `/api/luma/calendar/${encodeURIComponent(calendar_api_id)}/profile`,
         q,
       );
       return asTextContent(data);
