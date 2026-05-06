@@ -24,6 +24,13 @@ const execFileAsync = promisify(execFile);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 const FETCH_SHOWTIMES_PY = join(__dirname, "..", "tools", "fetch_showtimes.py");
+const FETCH_SEATS_PY = join(__dirname, "..", "tools", "fetch_seats.py");
+
+async function fetchSeatsLocal(showtime_id, timeout) {
+  const ms = (timeout ?? 60) * 1000;
+  const { stdout } = await execFileAsync("python3", [FETCH_SEATS_PY, "--showtime-id", String(showtime_id)], { timeout: ms });
+  return JSON.parse(stdout.trim());
+}
 
 async function fetchShowtimesLocal(args) {
   const pyArgs = [];
@@ -304,19 +311,14 @@ server.tool(
 
 server.tool(
   "amc_seats",
-  "Seat map for a numeric AMC showtime id: GET /api/amc/seats/{id}. Requires AMC_COOKIE (or server AMC_COOKIE) for live fetch.",
+  "Seat map for a numeric AMC showtime id via GraphQL. Auto-fetches cookie from browser. Requires tls-client and browser-cookie3 Python packages.",
   {
     showtime_id: z.number().int().positive(),
     timeout: z.number().positive().max(120).optional(),
   },
   async ({ showtime_id, timeout }) => {
     try {
-      const q = {};
-      if (timeout !== undefined) q.timeout = timeout;
-      const data = await amcGet(
-        `/api/amc/seats/${encodeURIComponent(String(showtime_id))}`,
-        q,
-      );
+      const data = await fetchSeatsLocal(showtime_id, timeout);
       return asTextContent(data);
     } catch (error) {
       return asTextContent({ ok: false, error: String(error) });
