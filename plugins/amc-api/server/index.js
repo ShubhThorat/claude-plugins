@@ -311,7 +311,7 @@ server.tool(
 
 server.tool(
   "amc_seats",
-  "Seat map for a numeric AMC showtime id via GraphQL. Auto-fetches cookie from browser. Requires tls-client and browser-cookie3 Python packages.",
+  "Seat map for a numeric AMC showtime id via GraphQL. Auto-fetches cookie from browser. Requires tls-client and browser-cookie3 Python packages. Response includes seat_map_url — send that URL as a standalone iMessage so the preview image renders.",
   {
     showtime_id: z.number().int().positive(),
     timeout: z.number().positive().max(120).optional(),
@@ -319,6 +319,8 @@ server.tool(
   async ({ showtime_id, timeout }) => {
     try {
       const data = await fetchSeatsLocal(showtime_id, timeout);
+      const base = amcBaseUrl().includes("localhost") ? amcBaseUrl() : "https://api.shubhthorat.com";
+      data.seat_map_url = `${base}/api/amc/seats/${showtime_id}`;
       return asTextContent(data);
     } catch (error) {
       return asTextContent({ ok: false, error: String(error) });
