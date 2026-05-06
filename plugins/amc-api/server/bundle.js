@@ -6845,7 +6845,8 @@ var require_dist = __commonJS({
 // index.js
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -21073,6 +21074,20 @@ var GETCOOKIES_FALLBACK_PATH = join(
   "getcookies.py"
 );
 var execFileAsync = promisify(execFile);
+var __dirname = dirname(fileURLToPath(import.meta.url));
+var FETCH_SHOWTIMES_PY = join(__dirname, "..", "tools", "fetch_showtimes.py");
+async function fetchShowtimesLocal(args) {
+  const pyArgs = [];
+  if (args.slug) pyArgs.push("--slug", args.slug);
+  if (args.region) pyArgs.push("--region", args.region);
+  if (args.url) pyArgs.push("--url", args.url);
+  if (args.movie) pyArgs.push("--movie", args.movie);
+  if (args.date) pyArgs.push("--date", args.date);
+  if (args.premium_offering) pyArgs.push("--premium-offering", args.premium_offering);
+  const timeout = (args.timeout ?? 60) * 1e3;
+  const { stdout } = await execFileAsync("python3", [FETCH_SHOWTIMES_PY, ...pyArgs], { timeout });
+  return JSON.parse(stdout.trim());
+}
 function loadPersistentConfig() {
   try {
     return JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
@@ -21291,7 +21306,7 @@ server.tool(
 );
 server.tool(
   "amc_showtimes",
-  "Venue or movie showtimes from GET /api/amc/showtimes. Pass `url`, or `region`+`slug`, or `movie`; optional `date` (YYYY-MM-DD), `premium_offering`, `timeout`. Cookie via AMC_COOKIE when needed.",
+  "Venue or movie showtimes via AMC GraphQL. Pass `url`, or `slug` (e.g. 'amc-kips-bay-15'), or `region`+`slug`; optional `date` (YYYY-MM-DD), `movie` name filter, `premium_offering`. Reads Chrome cookies automatically. Requires tls-client and browser-cookie3 Python packages.",
   {
     url: external_exports.string().url().optional(),
     region: external_exports.string().min(1).optional(),
@@ -21303,10 +21318,7 @@ server.tool(
   },
   async (args) => {
     try {
-      const { timeout, ...rest } = args;
-      const query = { ...rest };
-      if (timeout !== void 0) query.timeout = timeout;
-      const data = await amcGet("/api/amc/showtimes", query);
+      const data = await fetchShowtimesLocal(args);
       return asTextContent(data);
     } catch (error2) {
       return asTextContent({ ok: false, error: String(error2) });
