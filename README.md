@@ -1,7 +1,7 @@
 <h1 align="center">Shubh Thorat · Claude Plugins</h1>
 
 <p align="center">
-  <strong>Personal Claude Code Plugins and MCP integrations.</strong>
+  <strong>Personal Claude Code plugins and MCP integrations.</strong>
 </p>
 
 <p align="center">
