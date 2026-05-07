@@ -28,12 +28,5 @@
       "category": "developer-tools",
       "homepage": "https://www.openssh.com/"
     },
-    {
-      "name": "agents",
-      "description": "Multi-plugin autonomous agents — compound workflows that orchestrate luma-api, socials, and other plugins. Requires dependencies to be installed separately.",
-      "source": "./plugins/agents",
-      "category": "developer-tools",
-      "homepage": "https://github.com/ShubhThorat/claude-plugins"
-    }
   ]
 }
