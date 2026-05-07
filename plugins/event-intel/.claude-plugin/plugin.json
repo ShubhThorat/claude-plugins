@@ -1,7 +1,0 @@
-{
-  "name": "event-intel",
-  "description": "Autonomous event research agent — given a Luma event, fetches attendees and enriches with social media intel. Requires luma-api plugin; socials plugin optional.",
-  "author": {
-    "name": "Shubh Thorat"
-  }
-}
