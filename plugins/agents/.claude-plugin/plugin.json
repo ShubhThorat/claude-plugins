@@ -1,0 +1,7 @@
+{
+  "name": "agents",
+  "description": "Multi-plugin autonomous agents for Shubh Thorat's Claude setup. Each agent requires specific plugins to be installed and verifies dependencies before running.",
+  "author": {
+    "name": "Shubh Thorat"
+  }
+}
