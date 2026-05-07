@@ -29,20 +29,6 @@
       "homepage": "https://www.openssh.com/"
     },
     {
-      "name": "luma-api",
-      "description": "Luma Discover + events + calendar MCP — public /api/luma/* proxy by default; optional env for self-host.",
-      "source": "./plugins/luma-api",
-      "category": "external-integrations",
-      "homepage": "https://luma.com"
-    },
-    {
-      "name": "amc-api",
-      "description": "AMC theatres / showtimes / seats MCP — showtimes via GraphQL with Chrome TLS fingerprint bypass; seats via api.shubhthorat.com; optional AMC_COOKIE for seats.",
-      "source": "./plugins/amc-api",
-      "category": "external-integrations",
-      "homepage": "https://www.amctheatres.com"
-    },
-    {
       "name": "agents",
       "description": "Multi-plugin autonomous agents — compound workflows that orchestrate luma-api, socials, and other plugins. Requires dependencies to be installed separately.",
       "source": "./plugins/agents",
