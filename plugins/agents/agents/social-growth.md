@@ -42,11 +42,12 @@ echo "${SOCIAL_ASSETS_DIR:-NOT_SET}"
 If set and the directory exists, discover projects:
 ```bash
 for dir in "$SOCIAL_ASSETS_DIR"/*/; do
-  echo "=== $(basename $dir) ===" && cat "$dir/info.txt" 2>/dev/null && echo ""
+  echo "=== $(basename $dir) ===" && cat "$dir/info.txt" 2>/dev/null && ls "$dir" 2>/dev/null && echo ""
 done
 ```
 
 Read each `info.txt` to understand: project name, URL, description, which GIF to use when.
+Note the full path to each asset file — e.g. `$SOCIAL_ASSETS_DIR/Socials/Socials Plugin.gif`. You'll need these exact paths when attaching media to replies.
 
 **If no assets configured:** ask the user for:
 - What they're building / promoting (name, URL, 1-line description)
@@ -85,7 +86,17 @@ For each search term:
    - **Relatable**: show you've been there, short and punchy
    - **Helpful**: answer something they asked or struggled with
    Never: "Great point!", never generic agreement, never shill first
-6. Attach a GIF only if: (a) assets are configured, (b) the post is directly about the tool's use case, (c) you haven't attached one in the last 3 replies
+
+   **Writing rules — non-negotiable:**
+   - NO em-dashes (—). Never. Use a period or comma instead.
+   - NO ", and" sentence connectors (e.g. "this does X, and it also does Y"). Just break into two sentences.
+   - NO "I've been", "I've found", "honestly", "genuinely", "literally" unless it sounds natural in context
+   - NO corporate/AI phrasing: "game-changer", "seamless", "robust", "leverage", "utilize"
+   - Write like a developer texting a friend. Short sentences. Lowercase is fine. Fragments are fine.
+   - Max 2 sentences unless the reply needs more context. Less is more.
+   - If promoting Socials plugin: mention it naturally in passing, not as a pitch ("we built something for this" > "check out our tool")
+
+6. Attach a GIF only if: (a) assets are configured AND the assets directory was successfully read, (b) the post is directly about the tool's use case (someone asking about Claude Code automation, MCP, posting bots, etc.), (c) you haven't attached one in the last 3 replies. To attach: read the GIF file path from the assets folder and pass it to `socials_create_post` or `socials_engage_post` as the media parameter. Use "Socials Plugin.gif" for first impressions, "Socials Plugin 2.gif" for posting flow questions, "Socials Plugin 3.gif" for engagement/reply questions.
 7. Post the reply via `socials_create_post` or `socials_engage_post`
 8. **Wait 2-5 minutes before the next reply** — call `socials_navigate` to `https://x.com/home` and wait ~3 seconds between each action to simulate human pacing. Do NOT post all replies back-to-back.
 
