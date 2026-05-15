@@ -8,6 +8,13 @@
   },
   "plugins": [
     {
+      "name": "luma",
+      "description": "Luma event discovery — browse events near you, by place, category, or calendar. Powered by luma.shubhthorat.com.",
+      "source": "./plugins/luma",
+      "category": "external-integrations",
+      "homepage": "https://luma.shubhthorat.com/docs"
+    },
+    {
       "name": "public",
       "description": "Public.com MCP integration for portfolio, quotes, options data, and order workflows in Claude.",
       "source": "./plugins/public",
@@ -28,5 +35,26 @@
       "category": "developer-tools",
       "homepage": "https://www.openssh.com/"
     },
+    {
+      "name": "benefits-api",
+      "description": "Personal benefits data — vision, health, and more as structured JSON for AI assistants.",
+      "source": "./plugins/benefits-api",
+      "category": "external-integrations",
+      "homepage": "https://api.shubhthorat.com/docs"
+    },
+    {
+      "name": "amc-api",
+      "description": "AMC theatres, showtimes, and seat maps — find theatres, browse showtimes, and pull live seat availability.",
+      "source": "./plugins/amc-api",
+      "category": "external-integrations",
+      "homepage": "https://www.amctheatres.com"
+    },
+    {
+      "name": "apple-home",
+      "description": "Apple Home MCP integration for controlling HomeKit devices from Claude.",
+      "source": "./plugins/apple-home",
+      "category": "external-integrations",
+      "homepage": "https://www.apple.com/home-app/"
+    }
   ]
 }

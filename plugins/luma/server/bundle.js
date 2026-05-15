@@ -21011,7 +21011,7 @@ var StdioServerTransport = class {
 
 // index.js
 var BASE = "https://luma.shubhthorat.com";
-async function lumaGet(path, query = {}) {
+async function get(path, query = {}) {
   const url = new URL(`${BASE}${path}`);
   for (const [k, v] of Object.entries(query)) {
     if (v !== void 0 && v !== null && v !== "") {
@@ -21026,106 +21026,72 @@ async function lumaGet(path, query = {}) {
     return { _raw: text };
   }
 }
-var server = new McpServer({
-  name: "luma-api",
-  version: "0.1.0"
-});
+var server = new McpServer({ name: "luma", version: "0.1.0" });
 server.tool(
-  "luma_discover",
+  "discover",
   "Fetch the Luma discover page: places, categories, calendars, and hydration coordinates.",
-  {
-    url: external_exports.string().optional().describe("Override discover URL (default: https://luma.com/discover)"),
-    timeout: external_exports.number().int().min(5).max(120).optional().describe("Request timeout in seconds")
-  },
-  async ({ url, timeout }) => {
-    const data = await lumaGet("/api/luma/discover", { url, timeout });
+  { timeout: external_exports.number().int().min(5).max(120).optional() },
+  async ({ timeout }) => {
+    const data = await get("/api/luma/discover", { timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
 server.tool(
-  "luma_events_near",
-  "Fetch events near a lat/lon coordinate, with optional category and time filters.",
+  "events_near",
+  "Fetch events near a lat/lon, with optional category and time filters.",
   {
     lat: external_exports.number().describe("Latitude"),
     lon: external_exports.number().describe("Longitude"),
-    category: external_exports.string().optional().describe("Category slug filter (e.g. 'music', 'tech')"),
-    when: external_exports.string().optional().describe("Time filter (e.g. 'today', 'this-week')"),
+    category: external_exports.string().optional().describe("Category slug (e.g. music, tech, ai)"),
+    when: external_exports.string().optional().describe("Time filter (e.g. today, this-week)"),
     limit: external_exports.number().int().min(1).max(50).optional().describe("Max results (default 10)"),
-    cursor: external_exports.string().optional().describe("Pagination cursor"),
+    cursor: external_exports.string().optional(),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
   async ({ lat, lon, category, when, limit, cursor, timeout }) => {
-    const data = await lumaGet("/api/luma/events/near", { lat, lon, category, when, limit, cursor, timeout });
+    const data = await get("/api/luma/events/near", { lat, lon, category, when, limit, cursor, timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
 server.tool(
-  "luma_event",
-  "Fetch full detail for a single Luma event by its api_id.",
+  "event",
+  "Fetch full detail for a Luma event by its api_id.",
   {
     id: external_exports.string().describe("Event api_id (e.g. evt-abc123)"),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
   async ({ id, timeout }) => {
-    const data = await lumaGet("/api/luma/event", { id, timeout });
+    const data = await get("/api/luma/event", { id, timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
 server.tool(
-  "luma_event_guests",
+  "event_guests",
   "Fetch featured guests for a Luma event.",
   {
     id: external_exports.string().describe("Event api_id"),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
   async ({ id, timeout }) => {
-    const data = await lumaGet("/api/luma/event/guests", { id, timeout });
+    const data = await get("/api/luma/event/guests", { id, timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
 server.tool(
-  "luma_events_by_place",
-  "Fetch events at a specific Luma place (discover_place_api_id).",
+  "events_by_place",
+  "Fetch events at a specific Luma place. Use place_id from discover results.",
   {
-    place_id: external_exports.string().describe("Discover place api_id from luma_discover results"),
-    pagination_limit: external_exports.number().int().min(1).max(100).optional().describe("Results per page (default 10)"),
-    cursor: external_exports.string().optional().describe("Pagination cursor"),
-    fetch_all: external_exports.boolean().optional().describe("Follow all pages automatically"),
-    max_pages: external_exports.number().int().min(1).max(500).optional().describe("Max pages when fetch_all=true"),
-    when: external_exports.string().optional().describe("Time filter"),
-    timeout: external_exports.number().int().min(5).max(120).optional()
-  },
-  async ({ place_id, pagination_limit, cursor, fetch_all, max_pages, when, timeout }) => {
-    const data = await lumaGet(`/api/luma/events/place/${place_id}`, {
-      pagination_limit,
-      cursor,
-      fetch_all,
-      max_pages,
-      when,
-      timeout
-    });
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
-  }
-);
-server.tool(
-  "luma_events_by_category",
-  "Fetch events in a category near a lat/lon. Category slug comes from luma_discover results.",
-  {
-    slug: external_exports.string().describe("Category slug (e.g. 'music', 'tech', 'fitness')"),
-    latitude: external_exports.number().describe("Latitude"),
-    longitude: external_exports.number().describe("Longitude"),
-    pagination_limit: external_exports.number().int().min(1).max(100).optional(),
+    place_id: external_exports.string().describe("discover_place_api_id from discover"),
+    limit: external_exports.number().int().min(1).max(100).optional(),
     cursor: external_exports.string().optional(),
     fetch_all: external_exports.boolean().optional().describe("Follow all pages automatically"),
     max_pages: external_exports.number().int().min(1).max(500).optional(),
     when: external_exports.string().optional(),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
-  async ({ slug, latitude, longitude, pagination_limit, cursor, fetch_all, max_pages, when, timeout }) => {
-    const data = await lumaGet(`/api/luma/events/category/${slug}`, {
-      latitude,
-      longitude,
-      pagination_limit,
+  async ({ place_id, limit, cursor, fetch_all, max_pages, when, timeout }) => {
+    const data = await get(`/api/luma/events/place/${place_id}`, {
+      pagination_limit: limit,
       cursor,
       fetch_all,
       max_pages,
@@ -21136,21 +21102,49 @@ server.tool(
   }
 );
 server.tool(
-  "luma_calendar_items",
+  "events_by_category",
+  "Fetch events in a category near a location. Slugs come from discover results.",
+  {
+    slug: external_exports.string().describe("Category slug (e.g. music, tech, fitness)"),
+    lat: external_exports.number().describe("Latitude"),
+    lon: external_exports.number().describe("Longitude"),
+    limit: external_exports.number().int().min(1).max(100).optional(),
+    cursor: external_exports.string().optional(),
+    fetch_all: external_exports.boolean().optional(),
+    max_pages: external_exports.number().int().min(1).max(500).optional(),
+    when: external_exports.string().optional(),
+    timeout: external_exports.number().int().min(5).max(120).optional()
+  },
+  async ({ slug, lat, lon, limit, cursor, fetch_all, max_pages, when, timeout }) => {
+    const data = await get(`/api/luma/events/category/${slug}`, {
+      latitude: lat,
+      longitude: lon,
+      pagination_limit: limit,
+      cursor,
+      fetch_all,
+      max_pages,
+      when,
+      timeout
+    });
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
+  }
+);
+server.tool(
+  "calendar_items",
   "Fetch upcoming events from a Luma calendar.",
   {
-    calendar_api_id: external_exports.string().describe("Calendar api_id"),
-    period: external_exports.enum(["future", "past", "all"]).optional().describe("Time period (default: future)"),
-    pagination_limit: external_exports.number().int().min(1).max(100).optional(),
+    id: external_exports.string().describe("Calendar api_id"),
+    period: external_exports.enum(["future", "past", "all"]).optional().describe("Default: future"),
+    limit: external_exports.number().int().min(1).max(100).optional(),
     cursor: external_exports.string().optional(),
     fetch_all: external_exports.boolean().optional(),
     max_pages: external_exports.number().int().min(1).max(500).optional(),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
-  async ({ calendar_api_id, period, pagination_limit, cursor, fetch_all, max_pages, timeout }) => {
-    const data = await lumaGet(`/api/luma/calendar/${calendar_api_id}/items`, {
+  async ({ id, period, limit, cursor, fetch_all, max_pages, timeout }) => {
+    const data = await get(`/api/luma/calendar/${id}/items`, {
       period,
-      pagination_limit,
+      pagination_limit: limit,
       cursor,
       fetch_all,
       max_pages,
@@ -21160,26 +21154,26 @@ server.tool(
   }
 );
 server.tool(
-  "luma_calendar_full",
+  "calendar",
   "Fetch full calendar detail including hosts, tags, and featured items.",
   {
-    calendar_api_id: external_exports.string().describe("Calendar api_id"),
+    id: external_exports.string().describe("Calendar api_id"),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
-  async ({ calendar_api_id, timeout }) => {
-    const data = await lumaGet(`/api/luma/calendar/${calendar_api_id}`, { timeout });
+  async ({ id, timeout }) => {
+    const data = await get(`/api/luma/calendar/${id}`, { timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
 server.tool(
-  "luma_calendar_profile",
+  "calendar_profile",
   "Fetch organizer profile for a Luma calendar (bio, socials, verified status).",
   {
-    calendar_api_id: external_exports.string().describe("Calendar api_id"),
+    id: external_exports.string().describe("Calendar api_id"),
     timeout: external_exports.number().int().min(5).max(120).optional()
   },
-  async ({ calendar_api_id, timeout }) => {
-    const data = await lumaGet(`/api/luma/calendar/${calendar_api_id}/profile`, { timeout });
+  async ({ id, timeout }) => {
+    const data = await get(`/api/luma/calendar/${id}/profile`, { timeout });
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
   }
 );
