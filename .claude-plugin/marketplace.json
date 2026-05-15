@@ -43,11 +43,11 @@
       "homepage": "https://api.shubhthorat.com/docs"
     },
     {
-      "name": "amc-api",
-      "description": "AMC theatres, showtimes, and seat maps — find theatres, browse showtimes, and pull live seat availability.",
-      "source": "./plugins/amc-api",
+      "name": "amc",
+      "description": "AMC theatres, showtimes, movies, and seat maps — powered by amc.shubhthorat.com.",
+      "source": "./plugins/amc",
       "category": "external-integrations",
-      "homepage": "https://www.amctheatres.com"
+      "homepage": "https://amc.shubhthorat.com/docs"
     },
     {
       "name": "apple-home",

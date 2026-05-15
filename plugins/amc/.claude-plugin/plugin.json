@@ -1,0 +1,6 @@
+{
+  "name": "amc",
+  "version": "0.1.0",
+  "description": "AMC theatres, showtimes, movies, and seat maps.",
+  "mcp": ".mcp.json"
+}
