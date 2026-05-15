@@ -1,9 +1,9 @@
 {
-  "name": "luma-api-mcp",
+  "name": "apple-home-mcp",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "MCP server for Luma Discover / events / calendar via your HTTP API.",
+  "description": "MCP server for Apple HomeKit — list devices, read state, control via Shortcuts.",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",

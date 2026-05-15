@@ -1,7 +1,0 @@
-{
-  "name": "amc-api",
-  "description": "AMC theatres / showtimes / seats MCP — public GET /api/amc/* on api.shubhthorat.com by default; optional AMC_COOKIE for Queue-it and seats.",
-  "author": {
-    "name": "Shubh Thorat"
-  }
-}

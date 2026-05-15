@@ -28,12 +28,5 @@
       "category": "developer-tools",
       "homepage": "https://www.openssh.com/"
     },
-    {
-      "name": "luma-api",
-      "description": "Luma Discover + events + calendar MCP — public /api/luma/* proxy by default; optional env for self-host.",
-      "source": "./plugins/luma-api",
-      "category": "external-integrations",
-      "homepage": "https://luma.com"
-    }
   ]
 }

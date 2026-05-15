@@ -3299,6 +3299,14 @@ var require_utils = __commonJS({
       }
       return output.join("");
     }
+    var HOST_DELIMS = { "@": "%40", "/": "%2F", "?": "%3F", "#": "%23", ":": "%3A" };
+    var HOST_DELIM_RE = /[@/?#:]/g;
+    var HOST_DELIM_NO_COLON_RE = /[@/?#]/g;
+    function reescapeHostDelimiters(host, isIP) {
+      const re = isIP ? HOST_DELIM_NO_COLON_RE : HOST_DELIM_RE;
+      re.lastIndex = 0;
+      return host.replace(re, (ch) => HOST_DELIMS[ch]);
+    }
     function normalizePercentEncoding(input, decodeUnreserved = false) {
       if (input.indexOf("%") === -1) {
         return input;
@@ -3376,7 +3384,7 @@ var require_utils = __commonJS({
           if (ipV6res.isIPV6 === true) {
             host = `[${ipV6res.escapedHost}]`;
           } else {
-            host = component.host;
+            host = reescapeHostDelimiters(host, false);
           }
         }
         uriTokens.push(host);
@@ -3390,6 +3398,7 @@ var require_utils = __commonJS({
     module.exports = {
       nonSimpleDomain,
       recomposeAuthority,
+      reescapeHostDelimiters,
       normalizePercentEncoding,
       normalizePathEncoding,
       escapePreservingEscapes,
@@ -3616,12 +3625,12 @@ var require_schemes = __commonJS({
 var require_fast_uri = __commonJS({
   "node_modules/fast-uri/index.js"(exports, module) {
     "use strict";
-    var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, isIPv4, nonSimpleDomain } = require_utils();
+    var { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizePercentEncoding, normalizePathEncoding, escapePreservingEscapes, reescapeHostDelimiters, isIPv4, nonSimpleDomain } = require_utils();
     var { SCHEMES, getSchemeHandler } = require_schemes();
     function normalize(uri, options) {
       if (typeof uri === "string") {
         uri = /** @type {T} */
-        serialize(parse3(uri, options), options);
+        normalizeString(uri, options);
       } else if (typeof uri === "object") {
         uri = /** @type {T} */
         parse3(serialize(uri, options), options);
@@ -3688,17 +3697,9 @@ var require_fast_uri = __commonJS({
       return target;
     }
     function equal(uriA, uriB, options) {
-      if (typeof uriA === "string") {
-        uriA = serialize(parse3(uriA, options), options);
-      } else if (typeof uriA === "object") {
-        uriA = serialize(uriA, options);
-      }
-      if (typeof uriB === "string") {
-        uriB = serialize(parse3(uriB, options), options);
-      } else if (typeof uriB === "object") {
-        uriB = serialize(uriB, options);
-      }
-      return uriA.toLowerCase() === uriB.toLowerCase();
+      const normalizedA = normalizeComparableURI(uriA, options);
+      const normalizedB = normalizeComparableURI(uriB, options);
+      return normalizedA !== void 0 && normalizedB !== void 0 && normalizedA.toLowerCase() === normalizedB.toLowerCase();
     }
     function serialize(cmpts, opts) {
       const component = {
@@ -3763,7 +3764,16 @@ var require_fast_uri = __commonJS({
       return uriTokens.join("");
     }
     var URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
-    function parse3(uri, opts) {
+    function getParseError(parsed, matches) {
+      if (matches[2] !== void 0 && parsed.path && parsed.path[0] !== "/") {
+        return 'URI path must start with "/" when authority is present.';
+      }
+      if (typeof parsed.port === "number" && (parsed.port < 0 || parsed.port > 65535)) {
+        return "URI port is malformed.";
+      }
+      return void 0;
+    }
+    function parseWithStatus(uri, opts) {
       const options = Object.assign({}, opts);
       const parsed = {
         scheme: void 0,
@@ -3774,6 +3784,7 @@ var require_fast_uri = __commonJS({
         query: void 0,
         fragment: void 0
       };
+      let malformedAuthorityOrPort = false;
       let isIP = false;
       if (options.reference === "suffix") {
         if (options.scheme) {
@@ -3793,6 +3804,11 @@ var require_fast_uri = __commonJS({
         parsed.fragment = matches[8];
         if (isNaN(parsed.port)) {
           parsed.port = matches[5];
+        }
+        const parseError = getParseError(parsed, matches);
+        if (parseError !== void 0) {
+          parsed.error = parsed.error || parseError;
+          malformedAuthorityOrPort = true;
         }
         if (parsed.host) {
           const ipv4result = isIPv4(parsed.host);
@@ -3832,14 +3848,18 @@ var require_fast_uri = __commonJS({
               parsed.scheme = unescape(parsed.scheme);
             }
             if (parsed.host !== void 0) {
-              parsed.host = unescape(parsed.host);
+              parsed.host = reescapeHostDelimiters(unescape(parsed.host), isIP);
             }
           }
           if (parsed.path) {
             parsed.path = normalizePathEncoding(parsed.path);
           }
           if (parsed.fragment) {
-            parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment));
+            try {
+              parsed.fragment = encodeURI(decodeURIComponent(parsed.fragment));
+            } catch {
+              parsed.error = parsed.error || "URI malformed";
+            }
           }
         }
         if (schemeHandler && schemeHandler.parse) {
@@ -3848,7 +3868,29 @@ var require_fast_uri = __commonJS({
       } else {
         parsed.error = parsed.error || "URI can not be parsed.";
       }
-      return parsed;
+      return { parsed, malformedAuthorityOrPort };
+    }
+    function parse3(uri, opts) {
+      return parseWithStatus(uri, opts).parsed;
+    }
+    function normalizeString(uri, opts) {
+      return normalizeStringWithStatus(uri, opts).normalized;
+    }
+    function normalizeStringWithStatus(uri, opts) {
+      const { parsed, malformedAuthorityOrPort } = parseWithStatus(uri, opts);
+      return {
+        normalized: malformedAuthorityOrPort ? uri : serialize(parsed, opts),
+        malformedAuthorityOrPort
+      };
+    }
+    function normalizeComparableURI(uri, opts) {
+      if (typeof uri === "string") {
+        const { normalized, malformedAuthorityOrPort } = normalizeStringWithStatus(uri, opts);
+        return malformedAuthorityOrPort ? void 0 : normalized;
+      }
+      if (typeof uri === "object") {
+        return serialize(uri, opts);
+      }
     }
     var fastUri = {
       SCHEMES,
@@ -6843,11 +6885,10 @@ var require_dist = __commonJS({
 });
 
 // index.js
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { execFile, exec } from "node:child_process";
+import { promisify } from "node:util";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { execFile } from "node:child_process";
-import { promisify } from "node:util";
 
 // node_modules/zod/v3/external.js
 var external_exports = {};
@@ -20970,7 +21011,7 @@ var EMPTY_COMPLETION_RESULT = {
 };
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
-import process2 from "node:process";
+import process from "node:process";
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/shared/stdio.js
 var ReadBuffer = class {
@@ -21002,7 +21043,7 @@ function serializeMessage(message) {
 
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/stdio.js
 var StdioServerTransport = class {
-  constructor(_stdin = process2.stdin, _stdout = process2.stdout) {
+  constructor(_stdin = process.stdin, _stdout = process.stdout) {
     this._stdin = _stdin;
     this._stdout = _stdout;
     this._readBuffer = new ReadBuffer();
@@ -21062,277 +21103,203 @@ var StdioServerTransport = class {
 };
 
 // index.js
-var DEFAULT_AMC_PROXY_BASE = "https://api.shubhthorat.com";
-var CONFIG_DIR = join(homedir(), ".config", "amc-api");
-var CONFIG_PATH = join(CONFIG_DIR, "env.json");
-var GETCOOKIES_FALLBACK_PATH = join(
-  process.cwd(),
-  "plugins",
-  "amc-api",
-  "tools",
-  "getcookies.py"
-);
 var execFileAsync = promisify(execFile);
-function loadPersistentConfig() {
+var execAsync = promisify(exec);
+var HK_DB = join(homedir(), "Library", "HomeKit", "core.sqlite");
+var HK_DATA_DB = join(homedir(), "Library", "HomeKit", "datastore3.sqlite");
+async function sqliteQuery(db, sql, params = []) {
+  const script = `
+import sqlite3, json, sys
+try:
+    conn = sqlite3.connect(${JSON.stringify(db)}, timeout=5)
+    conn.row_factory = sqlite3.Row
+    cur = conn.cursor()
+    cur.execute(${JSON.stringify(sql)}, ${JSON.stringify(params)})
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    print(json.dumps(rows))
+except Exception as e:
+    print(json.dumps({"error": str(e)}))
+`;
+  const { stdout } = await execFileAsync("python3", ["-c", script], { timeout: 1e4 });
+  return JSON.parse(stdout.trim());
+}
+async function getDevices() {
+  const rows = await sqliteQuery(HK_DB, `
+    SELECT
+      a.ZCONFIGUREDNAME  AS name,
+      a.ZMODEL           AS model,
+      a.ZMANUFACTURER    AS manufacturer,
+      a.ZACCESSORYCATEGORY AS category,
+      r.ZNAME            AS room
+    FROM ZMKFACCESSORY a
+    LEFT JOIN ZMKFROOM r ON a.ZROOM = r.Z_PK
+    WHERE a.ZCONFIGUREDNAME IS NOT NULL
+    ORDER BY r.ZNAME, a.ZCONFIGUREDNAME
+  `);
+  if (rows.error) throw new Error(rows.error);
+  return rows;
+}
+async function getRooms() {
+  const rows = await sqliteQuery(HK_DB, `
+    SELECT ZNAME AS name FROM ZMKFROOM WHERE ZNAME IS NOT NULL ORDER BY ZNAME
+  `);
+  if (rows.error) throw new Error(rows.error);
+  return rows.map((r) => r.name);
+}
+async function getScenes() {
+  const rows = await sqliteQuery(HK_DB, `
+    SELECT s.ZNAME AS name FROM ZMKFCKSCENE s
+    WHERE s.ZNAME IS NOT NULL ORDER BY s.ZNAME
+  `);
+  if (rows.error) throw new Error(rows.error);
+  return rows.map((r) => r.name);
+}
+function shortcutName(device, action) {
+  return `Home: ${device} ${action}`;
+}
+async function runShortcut(name) {
   try {
-    return JSON.parse(readFileSync(CONFIG_PATH, "utf8"));
-  } catch {
-    return {};
-  }
-}
-var persistentConfig = loadPersistentConfig();
-function savePersistentConfig() {
-  mkdirSync(CONFIG_DIR, { recursive: true });
-  writeFileSync(CONFIG_PATH, `${JSON.stringify(persistentConfig, null, 2)}
-`, "utf8");
-}
-function getEnv(name) {
-  return (process.env[name] || persistentConfig[name] || "").trim();
-}
-function commonApiServerBaseUrl() {
-  const raw = getEnv("API_SERVER_URL") || getEnv("API_SERVER_HOST");
-  if (!raw) return "";
-  let s = raw.replace(/\/$/, "");
-  if (!/^https?:\/\//i.test(s)) s = `https://${s}`;
-  return s.replace(/\/$/, "");
-}
-function commonApiServerKey() {
-  return getEnv("API_SERVER_KEY") || getEnv("API_KEY");
-}
-function resolvedAmcApiUrl() {
-  const specific = getEnv("AMC_API_URL");
-  if (specific) return specific.replace(/\/$/, "");
-  return commonApiServerBaseUrl();
-}
-function resolvedAmcCookie() {
-  return getEnv("AMC_COOKIE") || getEnv("AMC_API_COOKIE");
-}
-function sanitizeCookie(raw) {
-  return (raw || "").trim();
-}
-function setStoredAmcCookie(cookieValue) {
-  const cookie = sanitizeCookie(cookieValue);
-  persistentConfig.AMC_COOKIE = cookie;
-  savePersistentConfig();
-  return cookie;
-}
-function clearStoredAmcCookie() {
-  delete persistentConfig.AMC_COOKIE;
-  delete persistentConfig.AMC_API_COOKIE;
-  savePersistentConfig();
-}
-function amcBaseUrl() {
-  const u = resolvedAmcApiUrl();
-  if (u) return u;
-  return DEFAULT_AMC_PROXY_BASE.replace(/\/$/, "");
-}
-async function amcGet(pathname, query) {
-  const base = amcBaseUrl();
-  const root = base.endsWith("/") ? base : `${base}/`;
-  const u = new URL(pathname.replace(/^\//, ""), root);
-  for (const [qk, qv] of Object.entries(query || {})) {
-    if (qv === void 0 || qv === null || qv === "") continue;
-    if (typeof qv === "boolean") {
-      if (qv) u.searchParams.set(qk, "true");
-      continue;
+    await execFileAsync("shortcuts", ["run", name], { timeout: 15e3 });
+    return { ok: true };
+  } catch (e) {
+    const msg = e.stderr || e.message || String(e);
+    if (msg.includes("not find") || msg.includes("not exist") || msg.includes("no shortcut")) {
+      return { ok: false, missing: true, shortcut: name };
     }
-    u.searchParams.set(qk, String(qv));
+    return { ok: false, error: msg };
   }
-  const headers = { Accept: "application/json" };
-  const apiKey = commonApiServerKey();
-  if (apiKey) headers["X-API-Key"] = apiKey;
-  const cookie = resolvedAmcCookie();
-  if (cookie) headers["X-Amc-Cookie"] = cookie;
-  const resp = await fetch(u, { method: "GET", headers });
-  const text = await resp.text();
-  let data;
+}
+async function listShortcuts() {
   try {
-    data = text ? JSON.parse(text) : null;
+    const { stdout } = await execFileAsync("shortcuts", ["list"], { timeout: 1e4 });
+    return stdout.trim().split("\n").filter(Boolean);
   } catch {
-    data = { _raw: text };
+    return [];
   }
-  if (!resp.ok) {
-    const err = new Error(`AMC API ${resp.status}: ${text.slice(0, 500)}`);
-    err.status = resp.status;
-    err.body = data;
-    throw err;
-  }
-  return data;
 }
-function asTextContent(payload) {
-  return {
-    content: [{ type: "text", text: JSON.stringify(payload, null, 2) }]
-  };
-}
-var server = new McpServer({ name: "amc-api", version: "0.1.0" });
+var server = new McpServer({ name: "apple-home", version: "0.1.0" });
 server.tool(
-  "amc_cookie_set",
-  "Store AMC cookie in ~/.config/amc-api/env.json so AMC API tools automatically send X-Amc-Cookie.",
-  {
-    cookie: external_exports.string().min(1)
-  },
-  async ({ cookie }) => {
-    try {
-      const stored = setStoredAmcCookie(cookie);
-      return asTextContent({
-        ok: true,
-        stored: true,
-        config_path: CONFIG_PATH,
-        cookie_length: stored.length,
-        hint: "amc_theatres/amc_showtimes/amc_seats will now auto-send X-Amc-Cookie when no process env override is set."
-      });
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
-  }
-);
-server.tool(
-  "amc_cookie_get",
-  "Show whether an AMC cookie is currently configured (without printing full secret).",
+  "home_devices",
+  "List all HomeKit devices with their room and type. No arguments needed.",
   {},
   async () => {
-    try {
-      const cookie = resolvedAmcCookie();
-      return asTextContent({
-        ok: true,
-        configured: Boolean(cookie),
-        source: process.env.AMC_COOKIE ? "process.env.AMC_COOKIE" : process.env.AMC_API_COOKIE ? "process.env.AMC_API_COOKIE" : persistentConfig.AMC_COOKIE ? CONFIG_PATH : null,
-        cookie_length: cookie ? cookie.length : 0
-      });
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
+    const devices = await getDevices();
+    const rooms = await getRooms();
+    return {
+      content: [{
+        type: "text",
+        text: JSON.stringify({ devices, rooms }, null, 2)
+      }]
+    };
   }
 );
 server.tool(
-  "amc_cookie_clear",
-  "Remove stored AMC cookie from ~/.config/amc-api/env.json.",
+  "home_control",
+  `Control a HomeKit device. Runs the macOS Shortcut named "Home: <device> <action>" (e.g. "Home: Floor Lamp on").
+The shortcut must exist in the Shortcuts app \u2014 use home_setup_guide if it hasn't been set up yet.
+action: "on" | "off" | "toggle" | any custom action the shortcut accepts.`,
+  {
+    device: external_exports.string().describe("Exact device name, e.g. 'Floor Lamp'"),
+    action: external_exports.string().describe('"on", "off", or any custom action')
+  },
+  async ({ device, action }) => {
+    const name = shortcutName(device, action);
+    const result = await runShortcut(name);
+    if (result.ok) {
+      return { content: [{ type: "text", text: `\u2713 Ran shortcut "${name}"` }] };
+    }
+    if (result.missing) {
+      const guide = setupGuideFor(device);
+      return {
+        content: [{
+          type: "text",
+          text: `Shortcut "${name}" not found.
+
+${guide}`
+        }]
+      };
+    }
+    return { content: [{ type: "text", text: `Error: ${result.error}` }] };
+  }
+);
+server.tool(
+  "home_scenes",
+  "List all HomeKit scenes.",
   {},
   async () => {
-    try {
-      clearStoredAmcCookie();
-      return asTextContent({
-        ok: true,
-        cleared: true,
-        config_path: CONFIG_PATH
-      });
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
+    const scenes = await getScenes();
+    return { content: [{ type: "text", text: JSON.stringify(scenes, null, 2) }] };
   }
 );
 server.tool(
-  "amc_cookie_capture",
-  "Run local getcookies.py for a domain (default amctheatres.com), then store it for automatic AMC API calls.",
-  {
-    domain: external_exports.string().min(1).optional(),
-    script_path: external_exports.string().optional()
-  },
-  async ({ domain, script_path }) => {
-    const resolvedDomain = (domain || "amctheatres.com").trim();
-    const script = (script_path || process.env.AMC_COOKIE_SCRIPT || GETCOOKIES_FALLBACK_PATH).trim();
-    try {
-      const { stdout, stderr } = await execFileAsync("python3", [script, resolvedDomain], {
-        timeout: 15e3,
-        maxBuffer: 2 * 1024 * 1024
-      });
-      const cookie = sanitizeCookie(stdout);
-      if (!cookie) {
-        return asTextContent({
-          ok: false,
-          error: "cookie capture returned empty output",
-          script,
-          domain: resolvedDomain,
-          stderr: sanitizeCookie(stderr) || null
-        });
+  "home_run_scene",
+  `Run a HomeKit scene by name. Runs the Shortcut "Home Scene: <scene>".
+The shortcut must exist \u2014 use home_setup_guide for setup instructions.`,
+  { scene: external_exports.string().describe("Scene name, e.g. 'Good Morning'") },
+  async ({ scene }) => {
+    const name = `Home Scene: ${scene}`;
+    const result = await runShortcut(name);
+    if (result.ok) {
+      return { content: [{ type: "text", text: `\u2713 Ran scene "${scene}"` }] };
+    }
+    if (result.missing) {
+      return {
+        content: [{
+          type: "text",
+          text: `Shortcut "${name}" not found. Create a Shortcut in the Shortcuts app named exactly "${name}" with a HomeKit "Set scene" action for "${scene}".`
+        }]
+      };
+    }
+    return { content: [{ type: "text", text: `Error: ${result.error}` }] };
+  }
+);
+server.tool(
+  "home_setup_guide",
+  "Show setup instructions for creating the required Shortcuts to control your HomeKit devices.",
+  {},
+  async () => {
+    const devices = await getDevices();
+    const existing = await listShortcuts();
+    const existingSet = new Set(existing);
+    const lines = [
+      "# Apple Home MCP \u2014 Shortcut Setup",
+      "",
+      "Create these Shortcuts in the Shortcuts app (cmd+space \u2192 Shortcuts).",
+      "Each shortcut needs one action: **HomeKit \u2192 Control [Device] \u2192 set to On/Off**.",
+      "",
+      "## Required Shortcuts",
+      ""
+    ];
+    for (const d of devices) {
+      for (const action of ["on", "off"]) {
+        const name = shortcutName(d.name, action);
+        const status = existingSet.has(name) ? "\u2713 exists" : "\u2717 missing";
+        lines.push(`- \`${name}\` \u2014 ${status}`);
+        lines.push(`  Action: Set "${d.name}" to ${action === "on" ? "On" : "Off"}`);
       }
-      const stored = setStoredAmcCookie(cookie);
-      return asTextContent({
-        ok: true,
-        captured: true,
-        stored: true,
-        domain: resolvedDomain,
-        script,
-        config_path: CONFIG_PATH,
-        cookie_length: stored.length
-      });
-    } catch (error2) {
-      return asTextContent({
-        ok: false,
-        error: String(error2),
-        script,
-        domain: resolvedDomain
-      });
     }
+    lines.push("", "## How to create a Shortcut", "");
+    lines.push("1. Open Shortcuts app");
+    lines.push("2. Click **+** to create new");
+    lines.push("3. Name it exactly as shown above");
+    lines.push("4. Add action: search **Home** \u2192 **Control [Device]** \u2192 set power On or Off");
+    lines.push("5. Save");
+    lines.push("");
+    lines.push("Once created, `home_control` will work automatically.");
+    return { content: [{ type: "text", text: lines.join("\n") }] };
   }
 );
-server.tool(
-  "amc_theatres",
-  "Theatre search / listing from GET /api/amc/theatres (JSON under `data`). Optional `X-Amc-Cookie` via AMC_COOKIE when Queue-it blocks.",
-  {
-    q: external_exports.string().optional(),
-    page_url: external_exports.string().url().optional(),
-    verbose: external_exports.boolean().optional(),
-    timeout: external_exports.number().positive().max(120).optional()
-  },
-  async ({ q, page_url, verbose, timeout }) => {
-    try {
-      const query = {};
-      if (q !== void 0) query.q = q;
-      if (page_url) query.page_url = page_url;
-      if (verbose) query.verbose = true;
-      if (timeout !== void 0) query.timeout = timeout;
-      const data = await amcGet("/api/amc/theatres", query);
-      return asTextContent(data);
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
-  }
-);
-server.tool(
-  "amc_showtimes",
-  "Venue or movie showtimes from GET /api/amc/showtimes. Pass `url`, or `region`+`slug`, or `movie`; optional `date` (YYYY-MM-DD), `premium_offering`, `timeout`. Cookie via AMC_COOKIE when needed.",
-  {
-    url: external_exports.string().url().optional(),
-    region: external_exports.string().min(1).optional(),
-    slug: external_exports.string().min(1).optional(),
-    movie: external_exports.string().min(1).optional(),
-    date: external_exports.string().optional(),
-    premium_offering: external_exports.string().optional(),
-    timeout: external_exports.number().positive().max(120).optional()
-  },
-  async (args) => {
-    try {
-      const { timeout, ...rest } = args;
-      const query = { ...rest };
-      if (timeout !== void 0) query.timeout = timeout;
-      const data = await amcGet("/api/amc/showtimes", query);
-      return asTextContent(data);
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
-  }
-);
-server.tool(
-  "amc_seats",
-  "Seat map for a numeric AMC showtime id: GET /api/amc/seats/{id}. Requires AMC_COOKIE (or server AMC_COOKIE) for live fetch.",
-  {
-    showtime_id: external_exports.number().int().positive(),
-    timeout: external_exports.number().positive().max(120).optional()
-  },
-  async ({ showtime_id, timeout }) => {
-    try {
-      const q = {};
-      if (timeout !== void 0) q.timeout = timeout;
-      const data = await amcGet(
-        `/api/amc/seats/${encodeURIComponent(String(showtime_id))}`,
-        q
-      );
-      return asTextContent(data);
-    } catch (error2) {
-      return asTextContent({ ok: false, error: String(error2) });
-    }
-  }
-);
+function setupGuideFor(device) {
+  return [
+    `To set up control for "${device}":`,
+    `1. Open Shortcuts app (cmd+space \u2192 Shortcuts)`,
+    `2. Create shortcut named: "Home: ${device} on"`,
+    `   Add action: HomeKit \u2192 Control ${device} \u2192 Power: On`,
+    `3. Create shortcut named: "Home: ${device} off"`,
+    `   Add action: HomeKit \u2192 Control ${device} \u2192 Power: Off`,
+    `4. Then retry this command.`
+  ].join("\n");
+}
 var transport = new StdioServerTransport();
 await server.connect(transport);

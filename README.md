@@ -24,7 +24,7 @@ Then install individual plugins:
 /plugin install public@shubhthorat
 /plugin install perplexity@shubhthorat
 /plugin install ssh-cluster@shubhthorat
-/plugin install luma-api@shubhthorat
+/plugin install apple-home@shubhthorat
 ```
 
 ```
@@ -53,9 +53,9 @@ Connect Claude to any SSH-accessible cluster (HPC/GPU/bastion-backed) using a cu
 
 **Server:** `node server/bundle.js`
 
-### [Luma API](./plugins/luma-api)
+### [Apple Home](./plugins/apple-home)
 
-Read-only Luma data (Discover, events, calendars) via public **`GET /api/luma/*`** (default host **api.shubhthorat.com**) — **separate MCP** from SSH; no env required.
+Control Apple HomeKit devices — list devices, rooms, and scenes; turn devices on/off via macOS Shortcuts.
 
 **Server:** `node server/bundle.js`
 
@@ -70,4 +70,4 @@ This repo is the plugin marketplace definition. It contains plugin metadata and 
 | public      | [Public.com MCP Server](https://github.com/PublicDotCom/publicdotcom-mcp-server) |
 | perplexity  | [Perplexity MCP](https://github.com/perplexityai/modelcontextprotocol)           |
 | ssh-cluster | [OpenSSH](https://www.openssh.com/)                                              |
-| luma-api    | [Luma](https://luma.com) + your API `/api/luma/*`                                |
+| apple-home  | Apple HomeKit via `~/Library/HomeKit/core.sqlite` + macOS Shortcuts              |
