@@ -2,7 +2,7 @@
   "mcpServers": {
     "amc": {
       "type": "http",
-      "url": "https://amc.shubhthorat.com/mcp"
+      "url": "https://mcp.amc.shubhthorat.com"
     }
   }
 }

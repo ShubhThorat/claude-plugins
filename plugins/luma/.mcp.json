@@ -2,7 +2,7 @@
   "mcpServers": {
     "luma": {
       "type": "http",
-      "url": "https://luma.shubhthorat.com/mcp"
+      "url": "https://mcp.luma.shubhthorat.com"
     }
   }
 }
