@@ -1,9 +1,8 @@
 {
   "mcpServers": {
     "amc": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/server/bundle.js"],
-      "env": {}
+      "type": "http",
+      "url": "https://amc.shubhthorat.com/mcp"
     }
   }
 }
